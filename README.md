@@ -31,3 +31,8 @@ yarn install
 truffle compile
 truffle migrate --network local
 ```
+
+## Collaborate
+
+Commits have to respect [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). They are enforced using [commitlint](https://github.com/conventional-changelog/commitlint) and [husky](https://github.com/typicode/husky).  
+Use `npx cz` to easily generate commit messages (see [commitizen](https://github.com/commitizen/cz-cli)).
