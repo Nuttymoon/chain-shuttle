@@ -137,7 +137,7 @@ fund_cchain() {
 
 fund_truffle() {
   # Use truffle_accounts.js script to create and fund Truffle account
-  truffle exec --network local "$(dirname "$0")/truffle_accounts.js"
+  truffle exec --network avax_local "$(dirname "$0")/truffle_accounts.js"
 }
 
 while getopts 'aedct' flag; do

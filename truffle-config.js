@@ -5,7 +5,7 @@ const port = 9650;
 
 module.exports = {
   networks: {
-    local: {
+    avax_local: {
       provider: function () {
         return new Web3.providers.HttpProvider(
           `${protocol}://${ip}:${port}/ext/bc/C/rpc`
@@ -14,6 +14,11 @@ module.exports = {
       network_id: "*",
       gas: 3000000,
       gasPrice: 470000000000,
+    },
+  },
+  compilers: {
+    solc: {
+      version: "^0.7.0",
     },
   },
 };

@@ -2,6 +2,12 @@
 
 :bus: A shuttle to batch cross-chain transfers and lower fees.
 
+## TO DO
+
+- [x] Find a way to generate ERC20 token and send them to an address -> `$FOO` token
+- [ ] `registerTransfer()` should accept any ERC20 token
+- [ ] Log errors using [events](https://docs.soliditylang.org/en/v0.8.2/contracts.html#events)
+
 ## Setup
 
 ### Prerequisites
@@ -29,7 +35,7 @@ yarn install
 
 ```sh
 truffle compile
-truffle migrate --network local
+truffle migrate --network avax_local
 ```
 
 ## Collaborate
