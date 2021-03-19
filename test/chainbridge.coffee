@@ -13,25 +13,35 @@ contract 'ChainShuttle', (accounts) ->
 
     await shuttle.setBridgeAddress shuttle.address
 
-  describe 'setBrideAddress(address)', ->
-    it 'when `address` is a contract, succeed', ->
+  describe 'setBrideAddress(_bridge)', ->
+    it 'set `bridgeAddress` in contract state', ->
       await shuttle.setBridgeAddress shuttle.address
       newAddress = await shuttle.bridgeAddress()
       newAddress.should.eql shuttle.address
 
-    it 'when `address` is not a contract, revert transaction', ->
+    it 'when `_bridge` is not a contract, revert transaction', ->
       await truffleAssert.reverts(shuttle.setBridgeAddress accounts[0])
 
-  it 'registerTransfer', ->
-    await foo.approve shuttle.address, 10000
-    allowedTranfer = await foo.allowance accounts[0], shuttle.address
-    allowedTranfer.toNumber().should.eql 10000
+  describe 'registerTransfer(_to, _token, _amount)', ->
+    it 'register a new transfer', ->
+      amount = 10000
+      await foo.approve shuttle.address, amount
+      allowedTranfer = await foo.allowance accounts[0], shuttle.address
+      allowedTranfer.toNumber().should.eql amount
 
-    # await shuttle.registerTransfer accounts[0], foo.address, 10000
-    await foo.transferFrom accounts[0], shuttle.address, 10000
-    shuttleBalance = await foo.balanceOf shuttle.addres
-    shuttleBalance.should.eql 10000
-    # firstTransfer = await shuttle.getOpenDeliveryTransfer(0)
-    # firstTransfer.sender.should.eql accounts[0]
-    # firstTransfer.recipient.should.eql accounts[0]
-    # firstTransfer.amount.should.eql 10000
+      await shuttle.registerTransfer accounts[0], foo.address, amount
+      shuttleBalance = await foo.balanceOf shuttle.address
+      shuttleBalance.toNumber().should.eql amount
+      transferAmount = await shuttle.getTransferAmount accounts[0], accounts[0], foo.address
+      transferAmount.toNumber().should.eql amount
+    
+    it 'when `_token` is not a contract, revert transaction', ->
+      await truffleAssert.reverts(
+        shuttle.registerTransfer accounts[0], accounts[0], 10000
+      )
+
+    it 'when `msg.sender` did not approve to withdraw `_amount`, revert transaction', ->
+      await foo.approve shuttle.address, 0
+      await truffleAssert.reverts(
+        shuttle.registerTransfer accounts[0], foo.address, 10000
+      )

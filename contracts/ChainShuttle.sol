@@ -5,91 +5,60 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 contract ChainShuttle is Ownable {
-    // Enums
-    enum DeliveryStatus { Loading, Closed, Delivered }
-    DeliveryStatus constant defaultStatus = DeliveryStatus.Loading;
-
-    // Structs
-    struct Transfer {
-        address sender;
-        address recipient;
-        uint256 amount;
-    }
-
-    struct Delivery {
-        Transfer[] shipment;
-        DeliveryStatus status;
-        uint totalAmount;
-    }
-
-    // Public objects
     address public bridgeAddress;
 
     uint public transferBatch = 10;
-    Delivery public openDelivery;
-    // Delivery[] public pendingDeliveries;
 
-    constructor() {
-        resetOpenDelivery();
-    }
+    // 1 transfer = sender => (recipient => (token => amount))
+    mapping (address => mapping (address => mapping (address => uint256))) public transfers;
 
-    // Admin functions
+    event TransferRegistered(address indexed, address, address, uint256);
+
     modifier onlyBridgeDefined {
         require(bridgeAddress != address(0), "Bridge address is not configured");
         _;
     }
 
-    function setBridgeAddress(address _address) public onlyOwner {
-        require(Address.isContract(_address), "Bridge address must be a contract");
-        bridgeAddress = _address;
+    function setBridgeAddress(address _bridge) public onlyOwner {
+        require(Address.isContract(_bridge), "Bridge address must be a contract");
+        bridgeAddress = _bridge;
     }
 
     // Bridge functions
-    function registerTransfer(
-        address _recipient,
-        address _tokenAddress,
-        uint256 _amount
-    ) public onlyBridgeDefined {
-        require(Address.isContract(_tokenAddress), "The ERC20 token specified does not exist");
-        require(_amount > 0, "The amount of money sent through the bridge has to be > 0");
+    function registerTransfer(address _to, address _token, uint256 _amount)
+        public
+        onlyBridgeDefined
+    {
+        require(Address.isContract(_token), "ERC20 token address is not a contract");
+        require(_amount > 0, "Transfer amount has to be > 0");
 
         uint256 allowance = abi.decode(Address.functionCall(
-            _tokenAddress,
+            _token,
             abi.encodeWithSignature("allowance(address,address)", msg.sender, address(this))
         ), (uint256));
-        require(allowance >= _amount, "You did not allow us to withdraw enough tokens");
+        require(allowance >= _amount, "Sender did not allow to withdraw enough tokens");
 
-        // bool success = abi.decode(Address.functionCall(
-        //     _tokenAddress,
-        //     abi.encodeWithSignature("transferFrom(address,address,uint265)",
-        //                             msg.sender,
-        //                             address(this),
-        //                             _amount)
-        // ), (bool));
-        // require(success, "Failed to withdraw tokens from your account");
-    
-        // openDelivery.shipment.push(Transfer(msg.sender, _recipient, _amount));
-    }
-
-    function sendDelivery() public {
-        require(address(this).balance >= openDelivery.totalAmount);
+        bool successWithdraw = abi.decode(Address.functionCall(
+            _token,
+            abi.encodeWithSignature(
+                "transferFrom(address,address,uint256)",
+                msg.sender,
+                address(this),
+                _amount
+            )
+        ), (bool));
+        require(successWithdraw, "Failed to withdraw tokens from sender account");
+        
+        transfers[msg.sender][_to][_token] = _amount;
+        emit TransferRegistered(msg.sender, _to, _token, _amount);
     }
 
     // Getter functions
-    function getOpenDeliveryStatus() public view returns (DeliveryStatus) {
-        return openDelivery.status;
-    }
-
-    function getOpenDeliveryTransfer(uint _index) public view returns (address, address, uint) {
-        return (
-            openDelivery.shipment[_index].sender,
-            openDelivery.shipment[_index].recipient,
-            openDelivery.shipment[_index].amount
-        );
-    }
-
-    function resetOpenDelivery() private {
-        openDelivery.status = defaultStatus;
-        openDelivery.totalAmount = 0;
+    function getTransferAmount(address _from, address _to, address _token)
+        public
+        view
+        returns (uint256)
+    {
+        return transfers[_from][_to][_token];
     }
 }

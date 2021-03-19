@@ -6,10 +6,12 @@
   "scripts": {
     "postinstall": "husky install",
     "compile": "coffee -o test -c test",
-    "migrate": "yarn migrate:avax",
+    "migrate": "yarn migrate:eth",
     "migrate:avax": "truffle migrate --network avax_local --reset",
-    "test": "yarn compile && yarn test:avax",
-    "test:avax": "truffle test --network avax_local"
+    "migrate:eth": "truffle migrate --network eth_local --reset",
+    "test": "yarn test:eth",
+    "test:avax": "yarn compile && truffle test --network avax_local",
+    "test:eth": "yarn compile && truffle test --network eth_local"
   },
   "repository": {
     "type": "git",
