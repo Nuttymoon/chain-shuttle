@@ -13,7 +13,7 @@ contract ChainShuttle is Ownable {
     struct Transfer {
         address sender;
         address recipient;
-        uint amount;
+        uint256 amount;
     }
 
     struct Delivery {
@@ -48,30 +48,27 @@ contract ChainShuttle is Ownable {
     function registerTransfer(
         address _recipient,
         address _tokenAddress,
-        uint _amount
+        uint256 _amount
     ) public onlyBridgeDefined {
         require(Address.isContract(_tokenAddress), "The ERC20 token specified does not exist");
         require(_amount > 0, "The amount of money sent through the bridge has to be > 0");
 
         uint256 allowance = abi.decode(Address.functionCall(
             _tokenAddress,
-            abi.encodeWithSelector(bytes4(keccak256("allowance(address,address)")), msg.sender, address(this))
+            abi.encodeWithSignature("allowance(address,address)", msg.sender, address(this))
         ), (uint256));
         require(allowance >= _amount, "You did not allow us to withdraw enough tokens");
 
-        bool success = abi.decode(Address.functionCall(
-            _tokenAddress,
-            abi.encodeWithSelector(bytes4(keccak256("transferFrom(address,address,uint265)")),
-                                   msg.sender,
-                                   address(this),
-                                   _amount)
-        ), (bool));
-        require(success, "Failed to withdraw tokens from your account");
-        
-        openDelivery.shipment.push(Transfer({
-            sender: msg.sender,
-            recipient: _recipient,
-            amount: _amount}));
+        // bool success = abi.decode(Address.functionCall(
+        //     _tokenAddress,
+        //     abi.encodeWithSignature("transferFrom(address,address,uint265)",
+        //                             msg.sender,
+        //                             address(this),
+        //                             _amount)
+        // ), (bool));
+        // require(success, "Failed to withdraw tokens from your account");
+    
+        // openDelivery.shipment.push(Transfer(msg.sender, _recipient, _amount));
     }
 
     function sendDelivery() public {
