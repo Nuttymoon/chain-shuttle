@@ -29,11 +29,12 @@ contract 'ChainShuttle', (accounts) ->
       allowedTranfer = await foo.allowance accounts[0], shuttle.address
       allowedTranfer.toNumber().should.eql amount
 
-      await shuttle.registerTransfer accounts[0], foo.address, amount
+      result = await shuttle.registerTransfer accounts[0], foo.address, amount
       shuttleBalance = await foo.balanceOf shuttle.address
       shuttleBalance.toNumber().should.eql amount
       transferAmount = await shuttle.getTransferAmount accounts[0], accounts[0], foo.address
       transferAmount.toNumber().should.eql amount
+      truffleAssert.eventEmitted(result, 'TransferRegistered', {from: accounts[0]})
     
     it 'when `_token` is not a contract, revert transaction', ->
       await truffleAssert.reverts(

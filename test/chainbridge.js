@@ -32,16 +32,19 @@
     });
     return describe('registerTransfer(_to, _token, _amount)', function() {
       it('register a new transfer', async function() {
-        var allowedTranfer, amount, shuttleBalance, transferAmount;
+        var allowedTranfer, amount, result, shuttleBalance, transferAmount;
         amount = 10000;
         await foo.approve(shuttle.address, amount);
         allowedTranfer = (await foo.allowance(accounts[0], shuttle.address));
         allowedTranfer.toNumber().should.eql(amount);
-        await shuttle.registerTransfer(accounts[0], foo.address, amount);
+        result = (await shuttle.registerTransfer(accounts[0], foo.address, amount));
         shuttleBalance = (await foo.balanceOf(shuttle.address));
         shuttleBalance.toNumber().should.eql(amount);
         transferAmount = (await shuttle.getTransferAmount(accounts[0], accounts[0], foo.address));
-        return transferAmount.toNumber().should.eql(amount);
+        transferAmount.toNumber().should.eql(amount);
+        return truffleAssert.eventEmitted(result, 'TransferRegistered', {
+          from: accounts[0]
+        });
       });
       it('when `_token` is not a contract, revert transaction', async function() {
         return (await truffleAssert.reverts(shuttle.registerTransfer(accounts[0], accounts[0], 10000)));

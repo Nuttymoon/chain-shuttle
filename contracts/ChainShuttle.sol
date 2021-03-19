@@ -10,9 +10,16 @@ contract ChainShuttle is Ownable {
     uint public transferBatch = 10;
 
     // 1 transfer = sender => (recipient => (token => amount))
-    mapping (address => mapping (address => mapping (address => uint256))) public transfers;
+    mapping (address => mapping (
+        address => mapping (address => uint256)
+    )) public transfers;
 
-    event TransferRegistered(address indexed, address, address, uint256);
+    event TransferRegistered(
+        address indexed from,
+        address to,
+        address token,
+        uint256 amount
+    );
 
     modifier onlyBridgeDefined {
         require(bridgeAddress != address(0), "Bridge address is not configured");
