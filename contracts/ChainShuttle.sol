@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
-pragma solidity ^0.7.0;
+pragma solidity ^0.6.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 contract ChainShuttle is Ownable {
     address public bridgeAddress;
+
+    // Address of the ChainShuttle contract on the target chain
+    address public mirrorAddress;
 
     uint public transferBatch = 10;
 
@@ -14,6 +17,9 @@ contract ChainShuttle is Ownable {
         address => mapping (address => uint256)
     )) public transfers;
 
+    // Token address mapping between chains
+    mapping (address => address) public tokensMapping;
+
     event TransferRegistered(
         address indexed from,
         address to,
@@ -21,7 +27,7 @@ contract ChainShuttle is Ownable {
         uint256 amount
     );
 
-    modifier onlyBridgeDefined {
+    modifier onlyBridgeSet {
         require(bridgeAddress != address(0), "Bridge address is not configured");
         _;
     }
@@ -31,10 +37,18 @@ contract ChainShuttle is Ownable {
         bridgeAddress = _bridge;
     }
 
+    function setMirrorAddress(address _mirror) public onlyOwner {
+        mirrorAddress = _mirror;
+    }
+
+    function setTokenMapping(address _local, address _crossChain) public onlyOwner {
+        tokensMapping[_local] = _crossChain;
+    }
+
     // Bridge functions
     function registerTransfer(address _to, address _token, uint256 _amount)
         public
-        onlyBridgeDefined
+        onlyBridgeSet
     {
         require(Address.isContract(_token), "ERC20 token address is not a contract");
         require(_amount > 0, "Transfer amount has to be > 0");
@@ -67,5 +81,9 @@ contract ChainShuttle is Ownable {
         returns (uint256)
     {
         return transfers[_from][_to][_token];
+    }
+
+    function getTokenMapping(address _local) public view returns (address) {
+        return tokensMapping[_local];
     }
 }

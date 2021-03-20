@@ -21,6 +21,18 @@ contract 'ChainShuttle', (accounts) ->
 
     it 'when `_bridge` is not a contract, revert transaction', ->
       await truffleAssert.reverts(shuttle.setBridgeAddress accounts[0])
+  
+  describe 'setMirrorAddress(_mirror)', ->
+    it 'set `mirrorAddress` in contract state', ->
+      await shuttle.setMirrorAddress shuttle.address
+      newAddress = await shuttle.mirrorAddress()
+      newAddress.should.eql shuttle.address
+
+  describe 'setTokenMapping(_mirror)', ->
+    it 'add new mapping in contract state', ->
+      await shuttle.setTokenMapping foo.address, foo.address
+      mapping = await shuttle.getTokenMapping foo.address
+      mapping.should.eql foo.address
 
   describe 'registerTransfer(_to, _token, _amount)', ->
     it 'register a new transfer', ->

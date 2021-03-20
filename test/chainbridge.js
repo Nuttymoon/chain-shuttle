@@ -30,6 +30,22 @@
         return (await truffleAssert.reverts(shuttle.setBridgeAddress(accounts[0])));
       });
     });
+    describe('setMirrorAddress(_mirror)', function() {
+      return it('set `mirrorAddress` in contract state', async function() {
+        var newAddress;
+        await shuttle.setMirrorAddress(shuttle.address);
+        newAddress = (await shuttle.mirrorAddress());
+        return newAddress.should.eql(shuttle.address);
+      });
+    });
+    describe('setTokenMapping(_mirror)', function() {
+      return it('add new mapping in contract state', async function() {
+        var mapping;
+        await shuttle.setTokenMapping(foo.address, foo.address);
+        mapping = (await shuttle.getTokenMapping(foo.address));
+        return mapping.should.eql(foo.address);
+      });
+    });
     return describe('registerTransfer(_to, _token, _amount)', function() {
       it('register a new transfer', async function() {
         var allowedTranfer, amount, result, shuttleBalance, transferAmount;
