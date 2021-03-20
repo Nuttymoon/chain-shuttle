@@ -5,12 +5,16 @@
 ## TO DO
 
 - [x] Find a way to generate ERC20 token and send them to an address -> `$FOO` token
-- [ ] `registerTransfer()` should accept any ERC20 token
-- [ ] Log errors using [events](https://docs.soliditylang.org/en/v0.8.2/contracts.html#events)
+- [x] `registerTransfer()` should accept any ERC20 token
+- [ ] `sendTransfers()` and `receiveTransfers()` functions
+- [ ] Local bridge between the 2 chains
+- [ ] Tokens addresses mapping between the 2 chains
 
 ## Setup
 
 ### Prerequisites
+
+#### For Avalanche only
 
 - Install Go and set `$GOPATH` in your env.
 - Install and build [avalanchego](https://github.com/ava-labs/avalanchego) and [avash](https://github.com/ava-labs/avash) with sources:
@@ -28,14 +32,23 @@
 
 ```sh
 yarn install
-./scripts/bootstrap.sh -adct
+./scripts/bootstrap.sh -adcte
 ```
 
-### Test the env
+### Test the code
+
+#### Ethereum (ganache-cli)
 
 ```sh
-truffle compile
-truffle migrate --network avax_local
+yarn migrate
+yarn test
+```
+
+#### Avalanche (avash)
+
+```sh
+yarn migrate:avax
+yarn test:avax
 ```
 
 ## Collaborate
