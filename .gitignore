@@ -1,5 +1,7 @@
+.*
 contracts/.placeholder
 test/.placeholder
 build
 node_modules
 !.husky
+chainbridge-deploy

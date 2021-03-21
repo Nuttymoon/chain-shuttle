@@ -6,9 +6,15 @@
 
 - [x] Find a way to generate ERC20 token and send them to an address -> `$FOO` token
 - [x] `registerTransfer()` should accept any ERC20 token
-- [ ] `sendTransfers()` and `receiveTransfers()` functions
-- [ ] Local bridge between the 2 chains
 - [ ] Tokens addresses mapping between the 2 chains
+  - [x] Mapping in contract
+  - [ ] See if viable to set this outside of the contract
+- [ ] ChainBridge
+  - [x] Deploy contracts on 2 chains
+  - [ ] Setup `geth` instead of `ganache-cli`
+  - [ ] Setup `chainsafe/chainbridge` Docker container
+- [ ] `sendTransfers()` and `receiveTransfers()` functions
+- [ ] Benchmark `require` calls gas cost
 
 ## Setup
 
@@ -32,7 +38,7 @@
 
 ```sh
 yarn install
-./scripts/bootstrap.sh -adcte
+./env/bootstrap.sh -adcte
 ```
 
 ### Test the code

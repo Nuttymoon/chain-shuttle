@@ -1,0 +1,40 @@
+{
+  "chains": [
+    {
+      "name": "eth",
+      "type": "ethereum",
+      "id": "0",
+      "endpoint": "${ETH_URL}",
+      "from": "0x4E979735C1f80011E7118D42204e15f392ef8e83",
+      "opts": {
+        "bridge": "$ETH_BRIDGE_ADDR",
+        "erc20Handler": "${ETH_ERC20_HANDLER_ADDR}",
+        "genericHandler": "${ETH_GEN_HANDLER_ADDR}",
+        "maxGasPrice": "20000000",
+        "gasLimit": "1000000",
+        "gasMultiplier": "1.25",
+        "http": "true",
+        "startBlock": "0",
+        "blockConfirmations": "2"
+      }
+    },
+    {
+      "name": "avax",
+      "type": "ethereum",
+      "id": "1",
+      "endpoint": "${AVAX_URL}",
+      "from": "0x4E979735C1f80011E7118D42204e15f392ef8e83",
+      "opts": {
+        "bridge": "${AVAX_BRIDGE_ADDR}",
+        "erc20Handler": "${AVAX_ERC20_HANDLER_ADDR}",
+        "genericHandler": "${AVAX_GEN_HANDLER_ADDR}",
+        "maxGasPrice": "20000000",
+        "gasLimit": "1000000",
+        "gasMultiplier": "1.25",
+        "http": "true",
+        "startBlock": "0",
+        "blockConfirmations": "2"
+      }
+    }
+  ]
+}

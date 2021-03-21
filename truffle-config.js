@@ -1,29 +1,37 @@
 const Web3 = require("web3");
 const protocol = "http";
 const ip = "localhost";
-const port = 9650;
 
 module.exports = {
   networks: {
-    avax_local: {
+    avax_avash: {
       provider: function () {
         return new Web3.providers.HttpProvider(
-          `${protocol}://${ip}:${port}/ext/bc/C/rpc`
+          `${protocol}://${ip}:9650/ext/bc/C/rpc`
         );
       },
       network_id: "*",
-      gas: 3000000,
+      gas: 8000000,
       gasPrice: 470000000000,
     },
-    eth_local: {
-      host: "127.0.0.1",
+    avax_ganache: {
+      host: ip,
+      port: 9650,
+      network_id: "*",
+      gas: 8000000,
+      gasPrice: 20000000,
+    },
+    eth_ganache: {
+      host: ip,
       port: 8545,
       network_id: "*",
+      gas: 8000000,
+      gasPrice: 20000000,
     },
   },
   compilers: {
     solc: {
-      version: "^0.7.0",
+      version: "0.6.4",
     },
   },
 };
