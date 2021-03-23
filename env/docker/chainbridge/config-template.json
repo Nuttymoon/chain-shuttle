@@ -1,7 +1,7 @@
 {
   "chains": [
     {
-      "name": "eth",
+      "name": "Ethereum",
       "type": "ethereum",
       "id": "0",
       "endpoint": "${ETH_URL}",
@@ -11,15 +11,15 @@
         "erc20Handler": "${ETH_ERC20_HANDLER_ADDR}",
         "genericHandler": "${ETH_GEN_HANDLER_ADDR}",
         "maxGasPrice": "20000000",
-        "gasLimit": "1000000",
-        "gasMultiplier": "1.25",
+        "gasLimit": "8000000",
+        "gasMultiplier": "1",
         "http": "true",
         "startBlock": "0",
         "blockConfirmations": "2"
       }
     },
     {
-      "name": "avax",
+      "name": "Avalanche",
       "type": "ethereum",
       "id": "1",
       "endpoint": "${AVAX_URL}",
@@ -29,8 +29,8 @@
         "erc20Handler": "${AVAX_ERC20_HANDLER_ADDR}",
         "genericHandler": "${AVAX_GEN_HANDLER_ADDR}",
         "maxGasPrice": "20000000",
-        "gasLimit": "1000000",
-        "gasMultiplier": "1.25",
+        "gasLimit": "8000000",
+        "gasMultiplier": "1",
         "http": "true",
         "startBlock": "0",
         "blockConfirmations": "2"

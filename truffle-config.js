@@ -21,7 +21,7 @@ module.exports = {
       gas: 8000000,
       gasPrice: 20000000,
     },
-    eth_ganache: {
+    eth: {
       host: ip,
       port: 8545,
       network_id: "*",

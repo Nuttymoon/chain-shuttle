@@ -1,0 +1,26 @@
+version: "3"
+services:
+  geth_eth:
+    image: ethereum/client-go
+    container_name: geth_eth
+    ports:
+      - "${ETH_PORT:-8545}:8545"
+    volumes:
+      - ./geth/fund_account.sh:/geth/fund_account.sh
+    command: --dev --http --http.addr 0.0.0.0 --dev.period 1
+  geth_avax:
+    image: ethereum/client-go
+    container_name: geth_avax
+    ports:
+      - "${AVAX_PORT:-9650}:8545"
+    volumes:
+      - ./geth/fund_account.sh:/geth/fund_account.sh
+    command: --dev --http --http.addr 0.0.0.0 --dev.period 1
+  chainbridge:
+    image: chainsafe/chainbridge
+    container_name: chainbridge
+    volumes:
+      - ./chainbridge:/chainbridge
+    entrypoint: ["sh", "/chainbridge/run.sh"]
+    command: --config /chainbridge/.config.json --latest --verbosity trce
+    network_mode: host

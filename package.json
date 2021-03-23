@@ -8,10 +8,10 @@
     "compile": "coffee -o test -c test",
     "migrate": "yarn migrate:eth",
     "migrate:avax": "truffle migrate --network avax_avash --reset",
-    "migrate:eth": "truffle migrate --network eth_ganache --reset",
+    "migrate:eth": "truffle migrate --network eth --reset",
     "test": "yarn test:eth",
     "test:avax": "yarn compile && truffle test --network avax_avash",
-    "test:eth": "yarn compile && truffle test --network eth_ganache"
+    "test:eth": "yarn compile && truffle test --network eth"
   },
   "repository": {
     "type": "git",
