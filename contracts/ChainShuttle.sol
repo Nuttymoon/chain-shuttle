@@ -6,39 +6,50 @@ import "@openzeppelin/contracts/utils/Address.sol";
 
 contract ChainShuttle is Ownable {
     address public bridgeAddress;
+    bytes32 public erc20HandlerID;
+    bytes32 public genericHandlerID;
 
-    // Address of the ChainShuttle contract on the target chain
+    uint8 public destChainID;
     address public mirrorAddress;
 
-    uint public transferBatch = 10;
+    uint8 public transferBatch = 10;
+    uint8 public transferCount = 0;
 
-    // 1 transfer = sender => (recipient => (token => amount))
-    mapping (address => mapping (
-        address => mapping (address => uint256)
-    )) public transfers;
+    // 1 transfer = (sender => (recipient => (token => amount)))
+    mapping(address => mapping(address => mapping(address => uint256))) public transfers;
 
     // Token address mapping between chains
     mapping (address => address) public tokensMapping;
 
-    event TransferRegistered(
-        address indexed from,
-        address to,
-        address token,
-        uint256 amount
-    );
+    event TransferRegistered(address indexed from, address to, address token, uint256 amount);
 
-    modifier onlyBridgeSet {
+    modifier onlyBridgeSetUp {
         require(bridgeAddress != address(0), "Bridge address is not configured");
+        require(erc20HandlerID != 0, "ERC20Handler ResourceID is not configured");
+        require(genericHandlerID != 0, "GenericHandler ResourceID address is not configured");
         _;
     }
 
-    function setBridgeAddress(address _bridge) public onlyOwner {
-        require(Address.isContract(_bridge), "Bridge address must be a contract");
-        bridgeAddress = _bridge;
+    modifier onlyMirrorSetUp {
+        require(mirrorAddress != address(0), "Mirror address is not configured");
+        _;
     }
 
-    function setMirrorAddress(address _mirror) public onlyOwner {
-        mirrorAddress = _mirror;
+    function setUpBridge(address _bridge, bytes32 _erc20HandlerID, bytes32 _genericHandlerID)
+        public
+        onlyOwner
+    {
+        require(Address.isContract(_bridge), "Bridge address must be a contract");
+        require(_erc20HandlerID != 0, "ERC20Handler ResourceID cannot be 0");
+        require(_genericHandlerID != 0, "GenericHandler ResourceID cannot be 0");
+        bridgeAddress = _bridge;
+        erc20HandlerID = _erc20HandlerID;
+        genericHandlerID = _genericHandlerID;
+    }
+
+    function setUpMirror(uint8 _destChainID, address _mirrorAddress) public onlyOwner {
+        destChainID = _destChainID;
+        mirrorAddress = _mirrorAddress;
     }
 
     function setTokenMapping(address _local, address _crossChain) public onlyOwner {
@@ -48,10 +59,18 @@ contract ChainShuttle is Ownable {
     // Bridge functions
     function registerTransfer(address _to, address _token, uint256 _amount)
         public
-        onlyBridgeSet
+        payable
+        onlyBridgeSetUp
+        onlyMirrorSetUp
     {
         require(Address.isContract(_token), "ERC20 token address is not a contract");
         require(_amount > 0, "Transfer amount has to be > 0");
+
+        uint256 bridgeFee = abi.decode(Address.functionCall(
+            bridgeAddress,
+            abi.encodeWithSignature("_fee()")
+        ), (uint256));
+        require(msg.value == bridgeFee, "Value has to be enough to pay the bridge");
 
         uint256 allowance = abi.decode(Address.functionCall(
             _token,
@@ -68,10 +87,15 @@ contract ChainShuttle is Ownable {
                 _amount
             )
         ), (bool));
-        require(successWithdraw, "Failed to withdraw tokens from sender account");
+        // require(successWithdraw, "Failed to withdraw tokens from sender account");
         
         transfers[msg.sender][_to][_token] = _amount;
+        transferCount += 1;
         emit TransferRegistered(msg.sender, _to, _token, _amount);
+
+        // if (transferCount == transferBatch) {
+
+        // }
     }
 
     // Getter functions

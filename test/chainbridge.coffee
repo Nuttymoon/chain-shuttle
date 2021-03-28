@@ -1,30 +1,54 @@
 should = require 'should'
-truffleAssert = require 'truffle-assertions'
+TruffleAssert = require 'truffle-assertions'
+bridgeConf = require '../env/docker/chainbridge/.config.json'
+erc20Json = require './resources/ERC20PresetMinterPauser.json'
 ChainShuttle = artifacts.require 'ChainShuttle'
 FOOToken = artifacts.require 'FOOToken'
 
 contract 'ChainShuttle', (accounts) ->
   shuttle = {}
   foo = {}
+  taxi = {}
 
-  before 'setup contract', ->
+  beforeEach 'setup contracts', ->
     shuttle = await ChainShuttle.deployed()
     foo = await FOOToken.deployed()
 
-    await shuttle.setBridgeAddress shuttle.address
+    taxi = new web3.eth.Contract(
+      erc20Json.abi
+      bridgeConf.chains[0].info.erc20Address
+    )
 
-  describe 'setBrideAddress(_bridge)', ->
-    it 'set `bridgeAddress` in contract state', ->
-      await shuttle.setBridgeAddress shuttle.address
+    await shuttle.setUpBridge(
+      bridgeConf.chains[0].opts.bridge
+      "0x000000000000000000000000000000e389d61c11e5fe32ec1735b3cd38c69500"
+      "0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00"
+    )
+
+    await shuttle.setUpMirror 1, shuttle.address
+
+  describe 'setUpBridge(_bridge,_erc20HandlerID,_genericHandlerID)', ->
+    it 'set up bridge params in contract state', ->
+      await shuttle.setUpBridge(
+        shuttle.address
+        "0x0000000000000000000000000000000000000000000000000000000000000001"
+        "0x0000000000000000000000000000000000000000000000000000000000000001"
+      )
       newAddress = await shuttle.bridgeAddress()
       newAddress.should.eql shuttle.address
+      newResourceID = await shuttle.erc20HandlerID()
+      newResourceID.should.eql "0x0000000000000000000000000000000000000000000000000000000000000001"
 
     it 'when `_bridge` is not a contract, revert transaction', ->
-      await truffleAssert.reverts(shuttle.setBridgeAddress accounts[0])
+      await TruffleAssert.reverts shuttle.setUpBridge(
+        accounts[0]
+        "0x000000000000000000000000000000e389d61c11e5fe32ec1735b3cd38c69500"
+        "0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00"
+      )
   
-  describe 'setMirrorAddress(_mirror)', ->
-    it 'set `mirrorAddress` in contract state', ->
-      await shuttle.setMirrorAddress shuttle.address
+  describe 'setUpMirror(_destChainID,_mirror)', ->
+    it 'set up cross-chain mirror in contract state', ->
+      await shuttle.setUpMirror 1, shuttle.address
       newAddress = await shuttle.mirrorAddress()
       newAddress.should.eql shuttle.address
 
@@ -37,24 +61,37 @@ contract 'ChainShuttle', (accounts) ->
   describe 'registerTransfer(_to, _token, _amount)', ->
     it 'register a new transfer', ->
       amount = 10000
-      await foo.approve shuttle.address, amount
-      allowedTranfer = await foo.allowance accounts[0], shuttle.address
-      allowedTranfer.toNumber().should.eql amount
+      await taxi.methods.mint(
+        accounts[0]
+        1000000
+      ).send {from: accounts[0]}
+      await taxi.methods.approve(
+        shuttle.address
+        amount
+      ).send {from: accounts[0]}
+      allowedTranfer = await taxi.methods.allowance(
+        accounts[0]
+        shuttle.address
+      ).call()
 
-      result = await shuttle.registerTransfer accounts[0], foo.address, amount
-      shuttleBalance = await foo.balanceOf shuttle.address
-      shuttleBalance.toNumber().should.eql amount
-      transferAmount = await shuttle.getTransferAmount accounts[0], accounts[0], foo.address
+      result = await shuttle.registerTransfer(
+        accounts[0]
+        taxi._address
+        amount
+        {from: accounts[0], value: web3.utils.toWei('0.05', 'ether')}
+      )
+      transferAmount = await shuttle.getTransferAmount accounts[0], accounts[0], taxi._address
       transferAmount.toNumber().should.eql amount
-      truffleAssert.eventEmitted(result, 'TransferRegistered', {from: accounts[0]})
+      shuttleBalance = await taxi.methods.balanceOf(shuttle.address).call()
+      Number(shuttleBalance).should.eql amount
+      TruffleAssert.eventEmitted(result, 'TransferRegistered', {from: accounts[0]})
     
     it 'when `_token` is not a contract, revert transaction', ->
-      await truffleAssert.reverts(
+      await TruffleAssert.reverts(
         shuttle.registerTransfer accounts[0], accounts[0], 10000
       )
 
     it 'when `msg.sender` did not approve to withdraw `_amount`, revert transaction', ->
-      await foo.approve shuttle.address, 0
-      await truffleAssert.reverts(
-        shuttle.registerTransfer accounts[0], foo.address, 10000
+      await TruffleAssert.reverts(
+        shuttle.registerTransfer accounts[0], taxi._address, 10000
       )

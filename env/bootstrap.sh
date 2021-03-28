@@ -29,12 +29,14 @@ AVASH_C_ADDR="0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
 # ETH vars
 export ETH_PORT=8545
 export ETH_URL="http://localhost:$ETH_PORT"
-GANACHE_SEED="chain-shuttle"
-GANACHE_ADDR="0x4E979735C1f80011E7118D42204e15f392ef8e83"
-GANACHE_PRIV_KEY="0x2e722288a2eae86eb5a549c72a4dc45bd7fc737c6f52a32bdb4cde02ad37620c"
+GANACHE_MNEMONIC="upper smile pigeon prison include expect open update hub enrich shine devote"
+export GANACHE_ADDR="0x7Bb69d4F671a00eF80A94B66f3872F9211Dc163c"
+GANACHE_PRIV_KEY="0xe6d41e023189809776529d270f118a883fd7acd5b6bf958c4c8ead37493034e9"
 
 # ChainBridge vars
+export ERC20_NAME="Taxi"
 export ERC20_SYM="TAXI"
+BRIDGE_FEE=0.05
 
 set -e
 
@@ -131,8 +133,8 @@ start_ganache() {
   # Start Ganache (Ethereum local)
   # $1 = Port
   # $2 = Chain ID
-  echo "Run ganache-cli with seed '$GANACHE_SEED'..."
-  npx ganache-cli -p "$1" -d -m "$GANACHE_SEED" -g 20000000 -l 8000000 > /dev/null &
+  echo "Run ganache-cli with seed '$GANACHE_MNEMONIC'..."
+  npx ganache-cli -p "$1" -d -m "$GANACHE_MNEMONIC" -g 20000000 -l 8000000 > /dev/null &
   echo "Wait for ganache-cli to start..."
   sleep 3
 }
@@ -188,8 +190,8 @@ deploy_bridge_contracts() {
   # $3 = Private key
   # $4 = Chain role: src or dest
   echo "  Deploy ChainBridge Solidity contracts to chain..."
-  cb_output=$(cb-sol-cli deploy --chainId "$1" --url "$2" \
-    --bridge --erc20Handler --erc20 --erc20Symbol "$ERC20_SYM" \
+  cb_output=$(cb-sol-cli deploy --chainId "$1" --url "$2" --fee "$BRIDGE_FEE" \
+    --bridge --erc20Handler --erc20 --erc20Symbol "$ERC20_SYM" --erc20Name "$ERC20_NAME" \
     --genericHandler --centAsset --relayers "$GANACHE_ADDR" \
     --relayerThreshold 1 --privateKey "$3")
   echo -e "\e[2m$cb_output\e[0m"
@@ -236,6 +238,7 @@ setup_bridge() {
   export ETH_BRIDGE_ADDR="$BRIDGE_ADDR"
   export ETH_ERC20_HANDLER_ADDR="$ERC20_HANDLER_ADDR"
   export ETH_GEN_HANDLER_ADDR="$GEN_HANDLER_ADDR"
+  export ETH_ERC20_ADDR="$ERC20_ADDR"
 
   echo "Generate ChainBridge JSON conf..."
   envsubst < "$(dirname "$0")/docker/chainbridge/config-template.json" \
