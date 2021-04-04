@@ -29,9 +29,9 @@ AVASH_C_ADDR="0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
 # ETH vars
 export ETH_PORT=8545
 export ETH_URL="http://localhost:$ETH_PORT"
-GANACHE_MNEMONIC="upper smile pigeon prison include expect open update hub enrich shine devote"
-export GANACHE_ADDR="0x7Bb69d4F671a00eF80A94B66f3872F9211Dc163c"
-GANACHE_PRIV_KEY="0xe6d41e023189809776529d270f118a883fd7acd5b6bf958c4c8ead37493034e9"
+TRUFFLE_MNEMONIC="upper smile pigeon prison include expect open update hub enrich shine devote"
+export TRUFFLE_ADDR="0x7Bb69d4F671a00eF80A94B66f3872F9211Dc163c"
+TRUFFLE_PRIV_KEY="0xe6d41e023189809776529d270f118a883fd7acd5b6bf958c4c8ead37493034e9"
 
 # ChainBridge vars
 export ERC20_NAME="Taxi"
@@ -133,8 +133,8 @@ start_ganache() {
   # Start Ganache (Ethereum local)
   # $1 = Port
   # $2 = Chain ID
-  echo "Run ganache-cli with seed '$GANACHE_MNEMONIC'..."
-  npx ganache-cli -p "$1" -d -m "$GANACHE_MNEMONIC" -a 5 -g 20000000 -l 8000000 > /dev/null &
+  echo "Run ganache-cli with seed '$TRUFFLE_MNEMONIC'..."
+  npx ganache-cli -p "$1" -d -m "$TRUFFLE_MNEMONIC" -a 5 -g 20000000 -l 8000000 > /dev/null &
   echo "Wait for ganache-cli to start..."
   sleep 3
 }
@@ -192,7 +192,7 @@ deploy_bridge_contracts() {
   echo "  Deploy ChainBridge Solidity contracts to chain..."
   cb_output=$(cb-sol-cli deploy --chainId "$1" --url "$2" --fee "$BRIDGE_FEE" \
     --bridge --erc20Handler --erc20 --erc20Symbol "$ERC20_SYM" --erc20Name "$ERC20_NAME" \
-    --genericHandler --centAsset --relayers "$GANACHE_ADDR" \
+    --genericHandler --centAsset --relayers "$TRUFFLE_ADDR" \
     --relayerThreshold 1 --privateKey "$3")
   echo -e "\e[2m$cb_output\e[0m"
   BRIDGE_ADDR=$(echo "$cb_output" | grep 'Bridge:' | grep -oP '0x\w+')
@@ -269,8 +269,8 @@ if [[ "$AVAX_PROVIDER" ]]
 then
   case "$AVAX_PROVIDER" in
     avash) start_avash && avax_priv_key="$AVASH_PRIV_KEY_HEX" ;;
-    ganache) start_ganache "$AVAX_PORT" && avax_priv_key="$GANACHE_PRIV_KEY";;
-    geth) start_geth geth_avax && avax_priv_key="$GANACHE_PRIV_KEY" ;;
+    ganache) start_ganache "$AVAX_PORT" && avax_priv_key="$TRUFFLE_PRIV_KEY";;
+    geth) start_geth geth_avax && avax_priv_key="$TRUFFLE_PRIV_KEY" ;;
     *) echo "$AVAX_PROVIDER is not a supported Avalanche provider. Providers: avash, ganache, geth"
        exit 1 ;;
   esac
@@ -280,8 +280,8 @@ if [[ "$TRUFFLE_FLAG" ]]; then fund_truffle; fi
 if [[ "$ETH_PROVIDER" ]]
 then
   case "$ETH_PROVIDER" in
-    ganache) start_ganache "$ETH_PORT" && eth_priv_key="$GANACHE_PRIV_KEY" ;;
-    geth) start_geth geth_eth && eth_priv_key="$GANACHE_PRIV_KEY" ;;
+    ganache) start_ganache "$ETH_PORT" && eth_priv_key="$TRUFFLE_PRIV_KEY" ;;
+    geth) start_geth geth_eth && eth_priv_key="$TRUFFLE_PRIV_KEY" ;;
     *) echo "$ETH_PROVIDER is not a supported Ethereum provider. Providers: ganache, geth"
        exit 1 ;;
   esac

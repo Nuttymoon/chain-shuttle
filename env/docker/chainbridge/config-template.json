@@ -5,7 +5,7 @@
       "type": "ethereum",
       "id": "0",
       "endpoint": "${ETH_URL}",
-      "from": "${GANACHE_ADDR}",
+      "from": "${TRUFFLE_ADDR}",
       "opts": {
         "bridge": "${ETH_BRIDGE_ADDR}",
         "erc20Handler": "${ETH_ERC20_HANDLER_ADDR}",
@@ -26,7 +26,7 @@
       "type": "ethereum",
       "id": "1",
       "endpoint": "${AVAX_URL}",
-      "from": "${GANACHE_ADDR}",
+      "from": "${TRUFFLE_ADDR}",
       "opts": {
         "bridge": "${AVAX_BRIDGE_ADDR}",
         "erc20Handler": "${AVAX_ERC20_HANDLER_ADDR}",

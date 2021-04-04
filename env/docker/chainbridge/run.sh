@@ -1,9 +1,9 @@
 #!/bin/bash
 
-export KEYSTORE_PASSWORD="chain-shuttle"
+export KEYSTORE_PASSWORD="chainshuttle"
 
 ./bridge accounts import \
-  --privateKey "0x2e722288a2eae86eb5a549c72a4dc45bd7fc737c6f52a32bdb4cde02ad37620c" \
+  --privateKey "0xe6d41e023189809776529d270f118a883fd7acd5b6bf958c4c8ead37493034e9" \
   --password "$KEYSTORE_PASSWORD"
 
 ./bridge "$@"

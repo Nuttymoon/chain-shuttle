@@ -26,7 +26,7 @@ contract ChainShuttle is Ownable {
         uint256 totalAmount;
         address[] senders;
         mapping (address => address) sendersRecipients;
-        mapping (address => uint) sendersAmounts;
+        mapping (address => uint256) sendersAmounts;
     }
 
     mapping (uint16 => Company) public companies;
@@ -52,7 +52,11 @@ contract ChainShuttle is Ownable {
         address to,
         uint256 amount
     );
-    event TokensSentToBridge();
+    event ShuttleDeparture(
+        uint16 indexed companyID,
+        uint16 indexed shuttleID,
+        uint256 totalAmount
+    );
 
     modifier onlyBridgeSetUp {
         require(bridgeAddress != address(0), "Bridge address is not configured");
@@ -161,47 +165,41 @@ contract ChainShuttle is Ownable {
         s.senders.push(msg.sender);
         s.sendersRecipients[msg.sender] = _to;
         s.sendersAmounts[msg.sender] = _amount;
+        s.totalAmount += _amount;
         s.numDeposits++;
 
         emit DepositRegistered(s.companyID, _shuttleID, msg.sender, _to, _amount);
+
+        if (s.numDeposits == s.capacity) {
+            bool successApprove = abi.decode(Address.functionCall(
+                c.localToken,
+                abi.encodeWithSignature(
+                    "approve(address,uint256)",
+                    erc20HandlerAddress,
+                    s.totalAmount
+                )
+            ), (bool));
+            require(successApprove, "Failed to approve ERC20Handler");
+
+            Address.functionCallWithValue(
+                bridgeAddress,
+                abi.encodeWithSignature(
+                    "deposit(uint8,bytes32,bytes)",
+                    c.destChainID,
+                    erc20HandlerID,
+                    abi.encodePacked(
+                        abi.encode(s.totalAmount),
+                        abi.encode(uint256(20)),
+                        c.mirror
+                    )
+                ),
+                bridgeFee,
+                "Failed to deposit transfers on the bridge"
+            );
+
+            emit ShuttleDeparture(s.companyID, _shuttleID, s.totalAmount);
+        }
     }
-
-    // function depositTransfers(uint256 _fee)
-    //     internal
-    //     onlyBridgeSetUp
-        // onlyMirrorSetUp
-    // {
-        // bool successApprove = abi.decode(Address.functionCall(
-        //     _token,
-        //     abi.encodeWithSignature(
-        //         "approve(address,uint256)",
-        //         erc20HandlerAddress,
-        //         transferTotal
-        //     )
-        // ), (bool));
-        // require(successApprove, "Failed to approve ERC20Handler");
-
-        // Address.functionCallWithValue(
-        //     bridgeAddress,
-        //     abi.encodeWithSignature(
-        //         "deposit(uint8,bytes32,bytes)",
-        //         destChainID,
-        //         erc20HandlerID,
-        //         abi.encodePacked(
-        //             abi.encode(transferTotal),
-        //             abi.encode(uint256(20)),
-        //             bridgeAddress
-        //         )
-        //     ),
-        //     _fee,
-        //     "Failed to deposit transfers on the bridge"
-        // );
-
-        // emit TokensSentToBridge();
-
-        // delete transferCount;
-        // delete transferTotal;
-    // }
 
     function getCompany(uint16 _companyID)
         public

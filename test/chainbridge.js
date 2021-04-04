@@ -19,7 +19,11 @@
     before(async function() {
       // Load contracts
       shuttle = (await ChainShuttle.deployed());
-      return taxi = new web3.eth.Contract(erc20Json.abi, bridgeConf.chains[0].info.erc20Address);
+      taxi = new web3.eth.Contract(erc20Json.abi, bridgeConf.chains[0].info.erc20Address);
+      return console.log(`\t
+  ChainShuttle address: ${shuttle.address}
+  TaxiToken address: ${taxi._address}
+\t`);
     });
     beforeEach(async function() {
       return (await shuttle.setUpBridge(bridgeConf.chains[0].opts.bridge, bridgeConf.chains[0].opts.erc20Handler, '0x000000000000000000000000000000e389d61c11e5fe32ec1735b3cd38c69500', bridgeConf.chains[0].opts.genericHandler, '0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00'));
@@ -83,12 +87,20 @@
     shuttle = {};
     taxi = {};
     before(async function() {
+      var acc, i, len;
       // Load contracts
       shuttle = (await ChainShuttle.deployed());
       taxi = new web3.eth.Contract(erc20Json.abi, bridgeConf.chains[0].info.erc20Address);
-      await taxi.methods.mint(accounts[0], 1000000).send({
-        from: accounts[0]
-      });
+      console.log(`\t
+  ChainShuttle address: ${shuttle.address}
+  TaxiToken address: ${taxi._address}
+\t`);
+      for (i = 0, len = accounts.length; i < len; i++) {
+        acc = accounts[i];
+        await taxi.methods.mint(acc, 1000000).send({
+          from: accounts[0]
+        });
+      }
       // Setup ChainShuttle to enable transfers
       await shuttle.setUpBridge(bridgeConf.chains[0].opts.bridge, bridgeConf.chains[0].opts.erc20Handler, '0x000000000000000000000000000000e389d61c11e5fe32ec1735b3cd38c69500', bridgeConf.chains[0].opts.genericHandler, '0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00');
       await shuttle.newCompany('ChainTaxi', 1, shuttle.address, taxi._address, taxi._address);
@@ -116,24 +128,6 @@
           amount: web3.utils.toBN(amount)
         });
       });
-      //   it 'register enough transfers to trigger a deposit on the bridge', ->
-      //     amount = 10000
-      //     await taxi.methods.mint(accounts[0], 1000000).send {from: accounts[0]}
-      //     await taxi.methods.approve(shuttle.address, amount * 2).send {from: accounts[0]}
-      //     allowedTranfer = await taxi.methods.allowance(accounts[0], shuttle.address).call()
-
-      //     await shuttle.registerTransfer(
-      //       accounts[0], taxi._address, amount
-      //       {from: accounts[0], value: web3.utils.toWei('0.05', 'ether')}
-      //     )
-      //     result = await shuttle.registerTransfer(
-      //       accounts[0], taxi._address, amount
-      //       {from: accounts[0], value: web3.utils.toWei('0.05', 'ether')}
-      //     )
-      //     TruffleAssert.eventEmitted result, 'TokensSentToBridge'
-
-      //     payload = await shuttle.getPayload(taxi._address)
-      //     console.log(payload.toString())
       it('when `msg.sender` has already registered a deposit in the shuttle, revert transaction', async function() {
         var amount;
         amount = 10000;
@@ -145,11 +139,29 @@
           value: web3.utils.toWei('0.025', 'ether')
         })));
       });
-      return it('when `msg.sender` did not approve to withdraw `_amount`, revert transaction', async function() {
+      it('when `msg.sender` did not approve to withdraw `_amount`, revert transaction', async function() {
         return (await TruffleAssert.reverts(shuttle.registerDeposit(0, accounts[1], 10000, {
           from: accounts[1],
           value: web3.utils.toWei('0.025', 'ether')
         })));
+      });
+      return it('register enough transfers to trigger a deposit on the bridge', async function() {
+        var amount, result, shuttleBalance;
+        amount = 10000;
+        await taxi.methods.approve(shuttle.address, amount).send({
+          from: accounts[1]
+        });
+        result = (await shuttle.registerDeposit(0, accounts[1], amount, {
+          from: accounts[1],
+          value: web3.utils.toWei('0.025', 'ether')
+        }));
+        shuttleBalance = (await taxi.methods.balanceOf(shuttle.address).call());
+        Number(shuttleBalance).should.eql(0);
+        return TruffleAssert.eventEmitted(result, 'ShuttleDeparture', {
+          companyID: web3.utils.toBN(0),
+          shuttleID: web3.utils.toBN(0),
+          totalAmount: web3.utils.toBN(amount * 2)
+        });
       });
     });
   });

@@ -15,6 +15,12 @@ contract 'ChainShuttle - setup functions', (accounts) ->
       erc20Json.abi
       bridgeConf.chains[0].info.erc20Address
     )
+    console.log """
+                \t
+                  ChainShuttle address: #{shuttle.address}
+                  TaxiToken address: #{taxi._address}
+                \t
+              """
 
   beforeEach ->
     await shuttle.setUpBridge(
@@ -106,7 +112,15 @@ contract 'ChainShuttle - registerDeposit', (accounts) ->
       erc20Json.abi
       bridgeConf.chains[0].info.erc20Address
     )
-    await taxi.methods.mint(accounts[0], 1000000).send {from: accounts[0]}
+    console.log """
+                \t
+                  ChainShuttle address: #{shuttle.address}
+                  TaxiToken address: #{taxi._address}
+                \t
+              """
+
+    for acc in accounts
+      await taxi.methods.mint(acc, 1000000).send {from: accounts[0]}
 
     # Setup ChainShuttle to enable transfers
     await shuttle.setUpBridge(
@@ -143,25 +157,6 @@ contract 'ChainShuttle - registerDeposit', (accounts) ->
         }
       )
 
-  #   it 'register enough transfers to trigger a deposit on the bridge', ->
-  #     amount = 10000
-  #     await taxi.methods.mint(accounts[0], 1000000).send {from: accounts[0]}
-  #     await taxi.methods.approve(shuttle.address, amount * 2).send {from: accounts[0]}
-  #     allowedTranfer = await taxi.methods.allowance(accounts[0], shuttle.address).call()
-
-  #     await shuttle.registerTransfer(
-  #       accounts[0], taxi._address, amount
-  #       {from: accounts[0], value: web3.utils.toWei('0.05', 'ether')}
-  #     )
-  #     result = await shuttle.registerTransfer(
-  #       accounts[0], taxi._address, amount
-  #       {from: accounts[0], value: web3.utils.toWei('0.05', 'ether')}
-  #     )
-  #     TruffleAssert.eventEmitted result, 'TokensSentToBridge'
-
-  #     payload = await shuttle.getPayload(taxi._address)
-  #     console.log(payload.toString())
-    
     it 'when `msg.sender` has already registered a deposit in the shuttle, revert transaction', ->
       amount = 10000
       await taxi.methods.approve(shuttle.address, amount).send {from: accounts[0]}
@@ -178,4 +173,24 @@ contract 'ChainShuttle - registerDeposit', (accounts) ->
           0, accounts[1], 10000
           {from: accounts[1], value: web3.utils.toWei('0.025', 'ether')}
         )
+      )
+
+    it 'register enough transfers to trigger a deposit on the bridge', ->
+      amount = 10000
+      await taxi.methods.approve(shuttle.address, amount).send {from: accounts[1]}
+
+      result = await shuttle.registerDeposit(
+        0, accounts[1], amount
+        {from: accounts[1], value: web3.utils.toWei('0.025', 'ether')}
+      )
+      shuttleBalance = await taxi.methods.balanceOf(shuttle.address).call()
+      Number(shuttleBalance).should.eql 0
+      TruffleAssert.eventEmitted(
+        result
+        'ShuttleDeparture'
+        {
+          companyID: web3.utils.toBN(0),
+          shuttleID: web3.utils.toBN(0),
+          totalAmount: web3.utils.toBN(amount * 2)
+        }
       )
