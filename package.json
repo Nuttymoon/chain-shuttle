@@ -32,7 +32,7 @@
   },
   "homepage": "https://github.com/ImpermanentStuff/chain-shuttle#readme",
   "dependencies": {
-    "@openzeppelin/contracts": "^3.4.1",
+    "@openzeppelin/contracts": "^4.0.0",
     "web3": "^1.3.4"
   },
   "devDependencies": {
