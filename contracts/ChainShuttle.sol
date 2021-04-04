@@ -130,6 +130,11 @@ contract ChainShuttle is Ownable {
         Shuttle storage s = shuttles[_shuttleID];
         Company storage c = companies[s.companyID];
 
+        require(
+            s.sendersRecipients[msg.sender] == address(0),
+            "One sender cannot register more than one deposit per shuttle"
+        );
+
         uint256 bridgeFee = abi.decode(Address.functionCall(
             bridgeAddress,
             abi.encodeWithSignature("_fee()")

@@ -134,7 +134,7 @@ start_ganache() {
   # $1 = Port
   # $2 = Chain ID
   echo "Run ganache-cli with seed '$GANACHE_MNEMONIC'..."
-  npx ganache-cli -p "$1" -d -m "$GANACHE_MNEMONIC" -g 20000000 -l 8000000 > /dev/null &
+  npx ganache-cli -p "$1" -d -m "$GANACHE_MNEMONIC" -a 5 -g 20000000 -l 8000000 > /dev/null &
   echo "Wait for ganache-cli to start..."
   sleep 3
 }

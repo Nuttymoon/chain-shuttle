@@ -63,14 +63,12 @@ yarn install
 #### Ethereum (ganache-cli or geth)
 
 ```sh
-yarn migrate
 yarn test
 ```
 
 #### Avalanche (avash)
 
 ```sh
-yarn migrate:avax
 yarn test:avax
 ```
 
