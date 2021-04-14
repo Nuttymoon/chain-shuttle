@@ -16,7 +16,7 @@
 - [ ] `registerDeposit()`
   - [x] Allow ERC20Handler to withdraw from ChainBridge contract with `approve`
   - [x] Send ERC20 tokens through the bridge when shuttle capacity is reached
-  - [ ] Define encoding for dispatch bytes message
+  - [x] Define encoding for dispatch bytes message
   - [ ] Send dispatch bytes message through the bridge when shuttle capacity is reached
 - [ ] `dispatchDeposits()`
 - [ ] Gas optimization

@@ -192,24 +192,17 @@ deploy_bridge_contracts() {
   echo "  Deploy ChainBridge Solidity contracts to chain..."
   cb_output=$(cb-sol-cli deploy --chainId "$1" --url "$2" --fee "$BRIDGE_FEE" \
     --bridge --erc20Handler --erc20 --erc20Symbol "$ERC20_SYM" --erc20Name "$ERC20_NAME" \
-    --genericHandler --centAsset --relayers "$TRUFFLE_ADDR" \
-    --relayerThreshold 1 --privateKey "$3")
+    --genericHandler --relayers "$TRUFFLE_ADDR" --relayerThreshold 1 --privateKey "$3")
   echo -e "\e[2m$cb_output\e[0m"
   BRIDGE_ADDR=$(echo "$cb_output" | grep 'Bridge:' | grep -oP '0x\w+')
   ERC20_HANDLER_ADDR=$(echo "$cb_output" | grep 'Erc20 Handler:' | grep -oP '0x\w+')
   ERC20_ADDR=$(echo "$cb_output" | grep 'Erc20:' | grep -oP '0x\w+')
   GEN_HANDLER_ADDR=$(echo "$cb_output" | grep 'Generic Handler:' | grep -oP '0x\w+')
-  CENT_ADDR=$(echo "$cb_output" | grep 'Centrifuge Asset:' | grep -oP '0x\w+')
   echo "  Register resources on the ChainBridge contract..."
   cb-sol-cli bridge register-resource \
     --url "$2" --privateKey "$3" --bridge "$BRIDGE_ADDR" \
     --resourceId "0x000000000000000000000000000000e389d61c11e5fe32ec1735b3cd38c69500" \
     --targetContract "$ERC20_ADDR"  --handler "$ERC20_HANDLER_ADDR" | grey
-  cb-sol-cli bridge register-generic-resource  \
-    --url "$2" --privateKey "$3" --bridge "$BRIDGE_ADDR" \
-    --resourceId "0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00" \
-    --targetContract "$CENT_ADDR" --handler "$GEN_HANDLER_ADDR" \
-    --hash --deposit "" --execute "store(bytes32)" | grey
 
   if [[ "$4" = "dest" ]]
   then

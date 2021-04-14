@@ -22,7 +22,7 @@ module.exports = {
             phrase:
               "upper smile pigeon prison include expect open update hub enrich shine devote",
           },
-          numberOfAddresses: 10,
+          numberOfAddresses: 5,
           providerOrUrl: `${protocol}://${host}:9650`,
         });
       },
@@ -37,7 +37,7 @@ module.exports = {
             phrase:
               "upper smile pigeon prison include expect open update hub enrich shine devote",
           },
-          numberOfAddresses: 10,
+          numberOfAddresses: 5,
           providerOrUrl: `${protocol}://${host}:8545`,
         });
       },

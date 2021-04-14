@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/utils/Address.sol";
 contract ChainShuttle is Ownable {
     address public bridgeAddress;
     address public erc20HandlerAddress;
-    bytes32 public erc20HandlerID;
+    bytes32 public erc20ResourceID;
     address public genericHandlerAddress;
-    bytes32 public genericHandlerID;
+    bytes32 public shuttleResourceID;
 
     struct Company {
         string name;
@@ -68,9 +68,9 @@ contract ChainShuttle is Ownable {
     function setUpBridge(
         address _bridge,
         address _erc20Handler,
-        bytes32 _erc20HandlerID,
+        bytes32 _erc20ResourceID,
         address _genericHandler,
-        bytes32 _genericHandlerID
+        bytes32 _shuttleResourceID
     )
         public
         onlyOwner
@@ -78,13 +78,13 @@ contract ChainShuttle is Ownable {
         require(Address.isContract(_bridge), "Bridge address must be a contract");
         require(Address.isContract(_erc20Handler), "ERC20Handler address must be a contract");
         require(Address.isContract(_genericHandler), "GenericHandler address must be a contract");
-        require(_erc20HandlerID != 0, "ERC20Handler ResourceID cannot be 0");
-        require(_genericHandlerID != 0, "GenericHandler ResourceID cannot be 0");
+        require(_erc20ResourceID != 0, "ERC20Handler ResourceID cannot be 0");
+        require(_shuttleResourceID != 0, "GenericHandler ResourceID cannot be 0");
         bridgeAddress = _bridge;
         erc20HandlerAddress = _erc20Handler;
-        erc20HandlerID = _erc20HandlerID;
+        erc20ResourceID = _erc20ResourceID;
         genericHandlerAddress = _genericHandler;
-        genericHandlerID = _genericHandlerID;
+        shuttleResourceID = _shuttleResourceID;
     }
 
     function newCompany(
@@ -143,7 +143,7 @@ contract ChainShuttle is Ownable {
             bridgeAddress,
             abi.encodeWithSignature("_fee()")
         ), (uint256));
-        require(msg.value == bridgeFee / s.capacity, "Value has to be enough to pay the bridge");
+        require(msg.value == bridgeFee*2 / s.capacity, "Value has to be enough to pay the bridge");
 
         uint256 allowance = abi.decode(Address.functionCall(
             c.localToken,
@@ -186,7 +186,7 @@ contract ChainShuttle is Ownable {
                 abi.encodeWithSignature(
                     "deposit(uint8,bytes32,bytes)",
                     c.destChainID,
-                    erc20HandlerID,
+                    erc20ResourceID,
                     abi.encodePacked(
                         abi.encode(s.totalAmount),
                         abi.encode(uint256(20)),
@@ -194,10 +194,71 @@ contract ChainShuttle is Ownable {
                     )
                 ),
                 bridgeFee,
-                "Failed to deposit transfers on the bridge"
+                "Failed to send ERC20 tokens through the bridge"
             );
 
+            // Address.functionCallWithValue(
+            //     bridgeAddress,
+            //     abi.encodeWithSignature(
+            //         "deposit(uint8,bytes32,bytes)",
+            //         c.destChainID,
+            //         shuttleResourceID,
+            //         generateShuttleData(_shuttleID)
+            //     ),
+            //     bridgeFee,
+            //     "Failed to send shuttle data through the bridge"
+            // );
+
             emit ShuttleDeparture(s.companyID, _shuttleID, s.totalAmount);
+        }
+    }
+
+    function generateShuttleData(uint16 _shuttleID)
+        public
+        view
+        returns (bytes memory data)
+    {
+        Shuttle storage s = shuttles[_shuttleID];
+        address[] memory recipients = new address[](s.capacity);
+        uint256[] memory amounts = new uint256[](s.capacity);
+
+        for (uint a=0; a < s.capacity; a++) {
+            recipients[a] = s.sendersRecipients[s.senders[a]];
+            amounts[a] = s.sendersAmounts[s.senders[a]];
+        }
+
+        return abi.encodePacked(
+            // lenMetadata = depositer + capacity + capacity * 2 * 
+            abi.encode(32 + s.capacity*2*32),
+            // depositer lenght + depositer address
+            // abi.encode(20),
+            // abi.encode(msg.sender),
+            abi.encode(s.capacity),
+            recipients,
+            amounts
+        );
+    }
+
+    function offloadShuttle(bytes calldata _data)
+        public
+        pure
+        returns (
+            uint256 numDeposits,
+            address[] memory recipients,
+            uint256[] memory amounts
+        )
+    {
+        // Skip depositer address
+        numDeposits = abi.decode(_data, (uint256));
+        recipients = new address[](numDeposits);
+        amounts = new uint256[](numDeposits);
+        // Skip depositer address and numDeposits
+        uint256 dOffset = 0;
+        uint256 aOffset = 0 + numDeposits*32;
+
+        for (uint d=0; d < numDeposits; d++) {
+            recipients[d] = abi.decode(_data[dOffset+d*32:dOffset+(d+1)*32], (address));
+            amounts[d] = abi.decode(_data[aOffset+(d*32):aOffset+(d+1)*32], (uint256));
         }
     }
 
