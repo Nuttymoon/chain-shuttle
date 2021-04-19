@@ -6,7 +6,7 @@ services:
     ports:
       - "${ETH_PORT:-8545}:8545"
     volumes:
-      - ./geth/fund_account.sh:/geth/fund_account.sh
+      - ./geth/fund_accounts.sh:/geth/fund_accounts.sh
     command: --dev --http --http.addr 0.0.0.0 --dev.period 1 --rpc.allow-unprotected-txs
   geth_avax:
     image: ethereum/client-go
@@ -14,7 +14,7 @@ services:
     ports:
       - "${AVAX_PORT:-9650}:8545"
     volumes:
-      - ./geth/fund_account.sh:/geth/fund_account.sh
+      - ./geth/fund_accounts.sh:/geth/fund_accounts.sh
     command: --dev --http --http.addr 0.0.0.0 --dev.period 1 --rpc.allow-unprotected-txs
   chainbridge:
     image: chainsafe/chainbridge

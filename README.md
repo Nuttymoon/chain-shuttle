@@ -17,8 +17,22 @@
   - [x] Allow ERC20Handler to withdraw from ChainBridge contract with `approve`
   - [x] Send ERC20 tokens through the bridge when shuttle capacity is reached
   - [x] Define encoding for dispatch bytes message
-  - [ ] Send dispatch bytes message through the bridge when shuttle capacity is reached
-- [ ] `dispatchDeposits()`
+  - [x] Send dispatch bytes message through the bridge when shuttle capacity is reached
+  - [ ] Embed `dataHash` and `depositNonce` of the ERC20 deposit in dispatch message. `dataHash` computing:
+    ```
+    keccak256(abi.encodePacked(
+      erc20HandlerAddress,
+      abi.encode(s.totalAmount),
+      abi.encode(uint256(20)),
+      c.mirror
+    ))
+    ```
+- [ ] Use a dedicated function to send the dispatch message (to avoid dispatch to happen if the ERC20 deposit has not been executed)
+- [ ] `offloadShuttle()`
+  - [x] Register claimable deposits in state
+  - [ ] Check that ERC20 deposit proposal has passed before registering claimable deposits (using `dataHash` and `depositNonce`)
+  - [ ] Test cross-chain message sending/reception
+- [ ] Implement a ChainBridge GenericHandler to only allow the shuttle contract to deposit messages
 - [ ] Gas optimization
   - [ ] Configure realistic gas price
   - [ ] Benchmark `require` calls gas cost
@@ -37,7 +51,7 @@ yarn install
 make install
 ```
 
-#### For Avalanche only
+#### For Avash only
 
 - Install Go and set `$GOPATH` in your env.
 - Install and build [avalanchego](https://github.com/ava-labs/avalanchego) and [avash](https://github.com/ava-labs/avash) with sources:
@@ -71,7 +85,7 @@ yarn test
 #### Avalanche (avash)
 
 ```sh
-yarn test:avax
+yarn test:avash
 ```
 
 ## Collaborate

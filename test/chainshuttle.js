@@ -67,26 +67,25 @@
         return (await TruffleAssert.reverts(shuttle.setUpBridge(accounts[0], accounts[0], '0x0000000000000000000000000000000000000000000000000000000000000001', accounts[0], '0x0000000000000000000000000000000000000000000000000000000000000001')));
       });
     });
-    describe('newCompany(_name,_destChainID,_mirror,_localToken,_destToken)', function() {
+    describe('setCompany(_name,_destChainID,_mirror,_token)', function() {
       it('create a new company to transfer erc20 tokens', async function() {
         var newCompany, result;
-        result = (await shuttle.newCompany('ChainTaxi', 1, shuttle.address, taxi.address, taxi.address));
+        result = (await shuttle.setCompany(0, 'ChainTaxi', 1, shuttle.address, taxi.address));
         newCompany = (await shuttle.getCompany(0));
         newCompany.name.should.eql('ChainTaxi');
         newCompany.destChainID.toNumber().should.eql(1);
         newCompany.mirror.should.eql(shuttle.address);
-        newCompany.localToken.should.eql(taxi.address);
-        newCompany.destToken.should.eql(taxi.address);
-        return TruffleAssert.eventEmitted(result, 'NewCompany', {
+        newCompany.token.should.eql(taxi.address);
+        return TruffleAssert.eventEmitted(result, 'CompanyUpdate', {
           companyID: web3.utils.toBN(0)
         });
       });
-      return it('when `_localToken` is not a contract, revert transaction', async function() {
-        return (await TruffleAssert.reverts(shuttle.newCompany('Revert', 1, accounts[0], accounts[0], accounts[0])));
+      return it('when `_token` is not a contract, revert transaction', async function() {
+        return (await TruffleAssert.reverts(shuttle.setCompany(1, 'Revert', 1, accounts[0], accounts[0])));
       });
     });
     return describe('newShuttle(_companyID,_capacity)', function() {
-      it('create a new shuttle to transfer erc20 tokens', async function() {
+      return it('create a new shuttle to transfer erc20 tokens', async function() {
         var newShuttle, result;
         result = (await shuttle.newShuttle(0, 100));
         newShuttle = (await shuttle.getShuttle(0));
@@ -98,13 +97,10 @@
           capacity: web3.utils.toBN(100)
         });
       });
-      return it('when `_companyID` does not exists, revert transaction', async function() {
-        return (await TruffleAssert.reverts(shuttle.newShuttle(2, 10)));
-      });
     });
   });
 
-  contract('ChainShuttle - registerDeposit', function(accounts) {
+  contract('ChainShuttle - shuttle functions', function(accounts) {
     var bridge, shuttle, taxi;
     shuttle = {};
     taxi = {};
@@ -128,18 +124,17 @@
   Registering ChainShuttle contract on the bridge...
 \t`);
       // 12
-      await bridge.adminSetGenericResource(bridgeConf.chains[0].opts.genericHandler, '0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00', shuttle.address, web3.eth.abi.encodeFunctionSignature('controlShuttle(bytes)'), web3.eth.abi.encodeFunctionSignature('offloadShuttle(bytes)'));
+      await bridge.adminSetGenericResource(bridgeConf.chains[0].opts.genericHandler, '0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00', shuttle.address, '0x00000000', web3.eth.abi.encodeFunctionSignature('offloadShuttle(bytes)'));
       for (i = 0, len = accounts.length; i < len; i++) {
         acc = accounts[i];
         await taxi.mint(acc, 1000000);
       }
-      
       // Setup ChainShuttle to enable transfers
       await shuttle.setUpBridge(bridgeConf.chains[0].opts.bridge, bridgeConf.chains[0].opts.erc20Handler, '0x000000000000000000000000000000e389d61c11e5fe32ec1735b3cd38c69500', bridgeConf.chains[0].opts.genericHandler, '0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00');
-      await shuttle.newCompany('ChainTaxi', 1, shuttle.address, taxi.address, taxi.address);
+      await shuttle.setCompany(0, 'ChainTaxi', 1, shuttle.address, taxi.address);
       return (await shuttle.newShuttle(0, 2));
     });
-    return describe('registerDeposit(_shuttleID,_to,_amount)', function() {
+    describe('registerDeposit(_shuttleID,_to,_amount)', function() {
       it('register a new erc20 deposit', async function() {
         var amount, deposit, result, shuttleBalance;
         amount = 10000;
@@ -153,7 +148,7 @@
         deposit.amount.toNumber().should.eql(amount);
         shuttleBalance = (await taxi.balanceOf(shuttle.address));
         shuttleBalance.toNumber().should.eql(amount);
-        return TruffleAssert.eventEmitted(result, 'DepositRegistered', {
+        return TruffleAssert.eventEmitted(result, 'DepositRegistation', {
           shuttleID: web3.utils.toBN(0),
           from: accounts[0],
           amount: web3.utils.toBN(amount)
@@ -175,7 +170,7 @@
         })));
       });
       return it('register enough transfers to trigger a deposit on the bridge', async function() {
-        var amount, result, shuttleBalance;
+        var amount, resetedShuttle, result, shuttleBalance;
         amount = 10000;
         await taxi.approve(shuttle.address, amount, {
           from: accounts[1]
@@ -186,11 +181,58 @@
         }));
         shuttleBalance = (await taxi.balanceOf(shuttle.address));
         shuttleBalance.toNumber().should.eql(0);
+        resetedShuttle = (await shuttle.getShuttle(0));
+        resetedShuttle.numDeposits.toNumber().should.eql(0);
+        resetedShuttle.totalAmount.toNumber().should.eql(0);
         return TruffleAssert.eventEmitted(result, 'ShuttleDeparture', {
           companyID: web3.utils.toBN(0),
           shuttleID: web3.utils.toBN(0),
           totalAmount: web3.utils.toBN(amount * 2)
         });
+      });
+    });
+    describe('offloadShuttle(_data)', function() {
+      it('offload the shuttle data to register claimable deposits', async function() {
+        var claim1, claim2, result, shuttleData;
+        // Setup accounts[0] as genericHandler to be able to call function
+        await shuttle.setUpBridge(bridgeConf.chains[0].opts.bridge, bridgeConf.chains[0].opts.erc20Handler, '0x000000000000000000000000000000e389d61c11e5fe32ec1735b3cd38c69500', accounts[0], '0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00');
+        shuttleData = `0x00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000${accounts[0].substr(2).padStart(64, '0')}${accounts[1].substr(2).padStart(64, '0')}00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000002710`;
+        result = (await shuttle.offloadShuttle(shuttleData));
+        claim1 = (await shuttle.getClaimableAmount(0, accounts[0]));
+        claim1.toNumber().should.eql(10000);
+        claim2 = (await shuttle.getClaimableAmount(0, accounts[0]));
+        claim2.toNumber().should.eql(10000);
+        return TruffleAssert.eventEmitted(result, 'ShuttleOffload', {
+          companyID: web3.utils.toBN(0),
+          numDeposits: web3.utils.toBN(2)
+        });
+      });
+      return it('if `msg.sender` is not the bridge GenericHandler, revert transaction', async function() {
+        var shuttleData;
+        shuttleData = `0x00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000${accounts[0].substr(2).padStart(64, '0')}${accounts[1].substr(2).padStart(64, '0')}00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000002710`;
+        return (await TruffleAssert.reverts(shuttle.offloadShuttle(shuttleData, {
+          from: accounts[1]
+        })));
+      });
+    });
+    return describe('claimDeposit(_companyID)', function() {
+      it('claim a pending deposit', async function() {
+        var accBalanceAfter, accBalanceBefore, result;
+        accBalanceBefore = (await taxi.balanceOf(accounts[0]));
+        await taxi.mint(shuttle.address, 10000);
+        result = (await shuttle.claimDeposit(0));
+        accBalanceAfter = (await taxi.balanceOf(accounts[0]));
+        (accBalanceAfter.toNumber() - accBalanceBefore.toNumber()).should.eql(10000);
+        return TruffleAssert.eventEmitted(result, 'DepositClaim', {
+          companyID: web3.utils.toBN(0),
+          recipient: accounts[0],
+          amount: web3.utils.toBN(10000)
+        });
+      });
+      return it('if no available deposit, revert transaction', async function() {
+        return (await TruffleAssert.reverts(shuttle.claimDeposit(0, {
+          from: accounts[3]
+        })));
       });
     });
   });

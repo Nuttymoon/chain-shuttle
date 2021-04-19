@@ -15,8 +15,7 @@ contract ChainShuttle is Ownable {
         string name;
         uint8 destChainID;
         address mirror;
-        address localToken;
-        address destToken;
+        address token;
     }
 
     struct Shuttle {
@@ -31,13 +30,16 @@ contract ChainShuttle is Ownable {
 
     mapping (uint16 => Company) public companies;
     mapping (uint16 => Shuttle) public shuttles;
-    uint16 public numCompanies;
     uint16 public numShuttles;
 
-    event NewCompany(
+    // companyID => (recipient => amount)
+    mapping (uint16 => mapping (address => uint256)) claimableAmounts;
+
+    event CompanyUpdate(
         uint16 indexed companyID,
         uint8 indexed destChainID,
         string name,
+        address mirror,
         address token
     );
     event NewShuttle(
@@ -45,7 +47,7 @@ contract ChainShuttle is Ownable {
         uint16 indexed shuttleID,
         uint16 capacity
     );
-    event DepositRegistered(
+    event DepositRegistation(
         uint16 indexed companyID,
         uint16 indexed shuttleID,
         address indexed from,
@@ -57,11 +59,28 @@ contract ChainShuttle is Ownable {
         uint16 indexed shuttleID,
         uint256 totalAmount
     );
+    event ShuttleOffload(
+        uint16 indexed companyID,
+        uint16 numDeposits
+    );
+    event DepositClaim(
+        uint16 indexed companyID,
+        address indexed recipient,
+        uint256 amount 
+    );
 
     modifier onlyBridgeSetUp {
         require(bridgeAddress != address(0), "Bridge address is not configured");
         require(erc20HandlerAddress != address(0), "Bridge address is not configured");
         require(genericHandlerAddress != address(0), "Bridge address is not configured");
+        _;
+    }
+
+    modifier onlyGenericHandler {
+        require(
+            msg.sender == genericHandlerAddress,
+            "Only the bridge GenericHandler can call this function"
+        );
         _;
     }
 
@@ -77,7 +96,7 @@ contract ChainShuttle is Ownable {
     {
         require(Address.isContract(_bridge), "Bridge address must be a contract");
         require(Address.isContract(_erc20Handler), "ERC20Handler address must be a contract");
-        require(Address.isContract(_genericHandler), "GenericHandler address must be a contract");
+        // require(Address.isContract(_genericHandler), "GenericHandler address must be a contract");
         require(_erc20ResourceID != 0, "ERC20Handler ResourceID cannot be 0");
         require(_shuttleResourceID != 0, "GenericHandler ResourceID cannot be 0");
         bridgeAddress = _bridge;
@@ -87,27 +106,25 @@ contract ChainShuttle is Ownable {
         shuttleResourceID = _shuttleResourceID;
     }
 
-    function newCompany(
+    function setCompany(
+        uint16 _companyID,
         string memory _name,
         uint8 _destChainID,
         address _mirror,
-        address _localToken,
-        address _destToken
+        address _token
     )
         public
         onlyOwner
         onlyBridgeSetUp
         returns (uint16 companyID)
     {
-        require(Address.isContract(_localToken), "ERC20 token address must be a contract");
-        companyID = numCompanies++;
-        Company storage c = companies[companyID];
+        require(Address.isContract(_token), "ERC20 token address must be a contract");
+        Company storage c = companies[_companyID];
         c.name = _name;
         c.destChainID = _destChainID;
         c.mirror = _mirror;
-        c.localToken = _localToken;
-        c.destToken = _destToken;
-        emit NewCompany(companyID, _destChainID, _name, _localToken);
+        c.token = _token;
+        emit CompanyUpdate(companyID, _destChainID, _name, _mirror, _token);
     }
 
     function newShuttle(uint16 _companyID, uint16 _capacity)
@@ -116,7 +133,6 @@ contract ChainShuttle is Ownable {
         onlyBridgeSetUp
         returns (uint16 shuttleID)
     {
-        require(_companyID < numCompanies, "The shuttle company does not exist");
         shuttleID = numShuttles++;
         Shuttle storage s = shuttles[shuttleID];
         s.companyID = _companyID;
@@ -146,13 +162,13 @@ contract ChainShuttle is Ownable {
         require(msg.value == bridgeFee*2 / s.capacity, "Value has to be enough to pay the bridge");
 
         uint256 allowance = abi.decode(Address.functionCall(
-            c.localToken,
+            c.token,
             abi.encodeWithSignature("allowance(address,address)", msg.sender, address(this))
         ), (uint256));
         require(allowance >= _amount, "Sender did not allow to withdraw enough tokens");
 
-        bool successWithdraw = abi.decode(Address.functionCall(
-            c.localToken,
+        bool successTransfer = abi.decode(Address.functionCall(
+            c.token,
             abi.encodeWithSignature(
                 "transferFrom(address,address,uint256)",
                 msg.sender,
@@ -160,7 +176,7 @@ contract ChainShuttle is Ownable {
                 _amount
             )
         ), (bool));
-        require(successWithdraw, "Failed to withdraw tokens from sender account");
+        require(successTransfer, "Failed to transfer tokens from sender account");
         
         s.senders.push(msg.sender);
         s.sendersRecipients[msg.sender] = _to;
@@ -168,11 +184,11 @@ contract ChainShuttle is Ownable {
         s.totalAmount += _amount;
         s.numDeposits++;
 
-        emit DepositRegistered(s.companyID, _shuttleID, msg.sender, _to, _amount);
+        emit DepositRegistation(s.companyID, _shuttleID, msg.sender, _to, _amount);
 
         if (s.numDeposits == s.capacity) {
             bool successApprove = abi.decode(Address.functionCall(
-                c.localToken,
+                c.token,
                 abi.encodeWithSignature(
                     "approve(address,uint256)",
                     erc20HandlerAddress,
@@ -197,19 +213,27 @@ contract ChainShuttle is Ownable {
                 "Failed to send ERC20 tokens through the bridge"
             );
 
-            // Address.functionCallWithValue(
-            //     bridgeAddress,
-            //     abi.encodeWithSignature(
-            //         "deposit(uint8,bytes32,bytes)",
-            //         c.destChainID,
-            //         shuttleResourceID,
-            //         generateShuttleData(_shuttleID)
-            //     ),
-            //     bridgeFee,
-            //     "Failed to send shuttle data through the bridge"
-            // );
+            Address.functionCallWithValue(
+                bridgeAddress,
+                abi.encodeWithSignature(
+                    "deposit(uint8,bytes32,bytes)",
+                    c.destChainID,
+                    shuttleResourceID,
+                    generateShuttleData(_shuttleID)
+                ),
+                bridgeFee,
+                "Failed to send shuttle data through the bridge"
+            );
 
             emit ShuttleDeparture(s.companyID, _shuttleID, s.totalAmount);
+
+            for (uint16 send=0; send < s.numDeposits; send++) {
+                delete(s.sendersRecipients[s.senders[send]]);
+                delete(s.sendersAmounts[s.senders[send]]);
+            }
+            delete(s.senders);
+            delete(s.numDeposits);
+            delete(s.totalAmount);
         }
     }
 
@@ -228,38 +252,60 @@ contract ChainShuttle is Ownable {
         }
 
         return abi.encodePacked(
-            // lenMetadata = depositer + capacity + capacity * 2 * 
-            abi.encode(32 + s.capacity*2*32),
-            // depositer lenght + depositer address
-            // abi.encode(20),
-            // abi.encode(msg.sender),
+            // lenMetadata = capacity + companyID + capacity * 2 lists
+            abi.encode(32 + 32 + s.capacity*2*32),
             abi.encode(s.capacity),
+            abi.encode(s.companyID),
             recipients,
             amounts
         );
     }
 
-    function offloadShuttle(bytes calldata _data)
-        public
-        pure
-        returns (
-            uint256 numDeposits,
-            address[] memory recipients,
-            uint256[] memory amounts
-        )
-    {
-        // Skip depositer address
-        numDeposits = abi.decode(_data, (uint256));
-        recipients = new address[](numDeposits);
-        amounts = new uint256[](numDeposits);
+    function offloadShuttle(bytes calldata _data) public onlyGenericHandler {
+        uint256 numDeposits = abi.decode(_data, (uint256));
+        uint16 companyID = abi.decode(_data[32:64], (uint16));
         // Skip depositer address and numDeposits
-        uint256 dOffset = 0;
-        uint256 aOffset = 0 + numDeposits*32;
+        uint256 dOffset = 64;
+        uint256 aOffset = 64 + numDeposits*32;
+        address recipient;
+        uint256 amount;
 
-        for (uint d=0; d < numDeposits; d++) {
-            recipients[d] = abi.decode(_data[dOffset+d*32:dOffset+(d+1)*32], (address));
-            amounts[d] = abi.decode(_data[aOffset+(d*32):aOffset+(d+1)*32], (uint256));
+        for (uint d=0; d < numDeposits; d++) {            
+            recipient = abi.decode(_data[dOffset+d*32:dOffset+(d+1)*32], (address));
+            amount = abi.decode(_data[aOffset+(d*32):aOffset+(d+1)*32], (uint256));
+            claimableAmounts[companyID][recipient] += amount;
         }
+
+        emit ShuttleOffload(companyID, uint16(numDeposits));
+    }
+
+    function claimDeposit(uint16 _companyID) public {
+        uint256 amount = claimableAmounts[_companyID][msg.sender];
+        require(amount > 0, "The claimable amount has to be > 0");
+
+        Company storage c = companies[_companyID];
+
+        bool successTransfer = abi.decode(Address.functionCall(
+            c.token,
+            abi.encodeWithSignature(
+                "transfer(address,uint256)",
+                msg.sender,
+                amount
+            )
+        ), (bool));
+        require(successTransfer, "Failed to transfer tokens to recipient account");
+
+        claimableAmounts[_companyID][msg.sender] = 0;
+
+        emit DepositClaim(_companyID, msg.sender, amount);
+    }
+
+    function getClaimableAmount(uint16 _companyID, address _recipient)
+        public
+        view
+        returns (uint256 amount)
+    {
+        return claimableAmounts[_companyID][_recipient];
     }
 
     function getCompany(uint16 _companyID)
@@ -269,12 +315,11 @@ contract ChainShuttle is Ownable {
             string memory name,
             uint8 destChainID,
             address mirror,
-            address localToken,
-            address destToken
+            address token
         )
     {
         Company storage c = companies[_companyID];
-        return (c.name, c.destChainID, c.mirror, c.localToken, c.destToken);
+        return (c.name, c.destChainID, c.mirror, c.token);
     }
 
     function getShuttle(uint16 _shuttleID)

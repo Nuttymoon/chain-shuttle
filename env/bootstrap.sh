@@ -146,7 +146,7 @@ start_geth() {
   docker-compose up -d "$1"
   echo "Wait geth to start..."
   sleep 5
-  docker exec "$1" sh /geth/fund_account.sh | grey
+  docker exec "$1" sh /geth/fund_accounts.sh | grey
   cd - > /dev/null || exit 1
 }
 
