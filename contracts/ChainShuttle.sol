@@ -24,16 +24,20 @@ contract ChainShuttle is Ownable {
         uint16 numDeposits;
         uint256 totalAmount;
         address[] senders;
-        mapping (address => address) sendersRecipients;
-        mapping (address => uint256) sendersAmounts;
+        mapping(address => address) sendersRecipients;
+        mapping(address => uint256) sendersAmounts;
     }
 
-    mapping (uint16 => Company) public companies;
-    mapping (uint16 => Shuttle) public shuttles;
-    uint16 public numShuttles;
+    mapping(uint16 => Company) public companies;
+    // companID => (capacity => allowed)
+    mapping(uint16 => mapping(uint16 => bool)) public allowedCapacities;
+    mapping(uint256 => Shuttle) public shuttles;
+    uint256 public numShuttles;
+    // companyID => (capacity => shuttleID)
+    mapping(uint16 => mapping(uint16 => uint256)) public activeShuttles;
 
     // companyID => (recipient => amount)
-    mapping (uint16 => mapping (address => uint256)) claimableAmounts;
+    mapping(uint16 => mapping(address => uint256)) public claimableAmounts;
 
     event CompanyUpdate(
         uint16 indexed companyID,
@@ -42,27 +46,25 @@ contract ChainShuttle is Ownable {
         address mirror,
         address token
     );
-    event NewShuttle(
+    event CapacityInit(uint16 indexed companyID, uint16 indexed capacity);
+    event ShuttleCreation(
         uint16 indexed companyID,
-        uint16 indexed shuttleID,
+        uint256 indexed shuttleID,
         uint16 capacity
     );
-    event DepositRegistation(
+    event DepositRegistration(
         uint16 indexed companyID,
-        uint16 indexed shuttleID,
+        uint256 indexed shuttleID,
         address indexed from,
         address to,
         uint256 amount
     );
     event ShuttleDeparture(
         uint16 indexed companyID,
-        uint16 indexed shuttleID,
+        uint256 indexed shuttleID,
         uint256 totalAmount
     );
-    event ShuttleOffload(
-        uint16 indexed companyID,
-        uint16 numDeposits
-    );
+    event ShuttleOffload(uint16 indexed companyID, uint16 capacity);
     event DepositClaim(
         uint16 indexed companyID,
         address indexed recipient,
@@ -116,7 +118,6 @@ contract ChainShuttle is Ownable {
         public
         onlyOwner
         onlyBridgeSetUp
-        returns (uint16 companyID)
     {
         require(Address.isContract(_token), "ERC20 token address must be a contract");
         Company storage c = companies[_companyID];
@@ -124,31 +125,45 @@ contract ChainShuttle is Ownable {
         c.destChainID = _destChainID;
         c.mirror = _mirror;
         c.token = _token;
-        emit CompanyUpdate(companyID, _destChainID, _name, _mirror, _token);
+
+        emit CompanyUpdate(_companyID, _destChainID, _name, _mirror, _token);
     }
 
-    function newShuttle(uint16 _companyID, uint16 _capacity)
-        public
-        onlyOwner
+    function initCapacity(uint16 _companyID, uint16 _capacity) public onlyOwner onlyBridgeSetUp {
+        allowedCapacities[_companyID][_capacity] = true;
+        nextShuttle(_companyID, _capacity);
+
+        emit CapacityInit(_companyID, _capacity);
+    }
+
+    function nextShuttle(uint16 _companyID, uint16 _capacity)
+        internal
+        // onlyOwner
         onlyBridgeSetUp
-        returns (uint16 shuttleID)
     {
-        shuttleID = numShuttles++;
+        uint256 shuttleID = numShuttles++;
         Shuttle storage s = shuttles[shuttleID];
         s.companyID = _companyID;
         s.capacity = _capacity;
-        emit NewShuttle(_companyID, shuttleID, _capacity);
+        activeShuttles[_companyID][_capacity] = shuttleID;
+
+        emit ShuttleCreation(_companyID, shuttleID, _capacity);
     }
 
-    function registerDeposit(uint16 _shuttleID, address _to, uint256 _amount)
+    function registerDeposit(uint16 _companyID, uint16 _capacity, address _to, uint256 _amount)
         public
         payable
         onlyBridgeSetUp
     {
+        require(
+            allowedCapacities[_companyID][_capacity],
+            "The shuttle capacity specified is not allowed"
+        );
         require(_amount > 0, "Transfer amount has to be > 0");
 
-        Shuttle storage s = shuttles[_shuttleID];
-        Company storage c = companies[s.companyID];
+        uint256 shuttleID = activeShuttles[_companyID][_capacity];
+        Shuttle storage s = shuttles[shuttleID];
+        Company storage c = companies[_companyID];
 
         require(
             s.sendersRecipients[msg.sender] == address(0),
@@ -184,7 +199,7 @@ contract ChainShuttle is Ownable {
         s.totalAmount += _amount;
         s.numDeposits++;
 
-        emit DepositRegistation(s.companyID, _shuttleID, msg.sender, _to, _amount);
+        emit DepositRegistration(_companyID, shuttleID, msg.sender, _to, _amount);
 
         if (s.numDeposits == s.capacity) {
             bool successApprove = abi.decode(Address.functionCall(
@@ -219,25 +234,19 @@ contract ChainShuttle is Ownable {
                     "deposit(uint8,bytes32,bytes)",
                     c.destChainID,
                     shuttleResourceID,
-                    generateShuttleData(_shuttleID)
+                    generateShuttleData(shuttleID)
                 ),
                 bridgeFee,
                 "Failed to send shuttle data through the bridge"
             );
 
-            emit ShuttleDeparture(s.companyID, _shuttleID, s.totalAmount);
+            emit ShuttleDeparture(_companyID, shuttleID, s.totalAmount);
 
-            for (uint16 send=0; send < s.numDeposits; send++) {
-                delete(s.sendersRecipients[s.senders[send]]);
-                delete(s.sendersAmounts[s.senders[send]]);
-            }
-            delete(s.senders);
-            delete(s.numDeposits);
-            delete(s.totalAmount);
+            nextShuttle(_companyID, _capacity);
         }
     }
 
-    function generateShuttleData(uint16 _shuttleID)
+    function generateShuttleData(uint256 _shuttleID)
         public
         view
         returns (bytes memory data)
@@ -300,14 +309,6 @@ contract ChainShuttle is Ownable {
         emit DepositClaim(_companyID, msg.sender, amount);
     }
 
-    function getClaimableAmount(uint16 _companyID, address _recipient)
-        public
-        view
-        returns (uint256 amount)
-    {
-        return claimableAmounts[_companyID][_recipient];
-    }
-
     function getCompany(uint16 _companyID)
         public
         view
@@ -322,7 +323,7 @@ contract ChainShuttle is Ownable {
         return (c.name, c.destChainID, c.mirror, c.token);
     }
 
-    function getShuttle(uint16 _shuttleID)
+    function getShuttle(uint256 _shuttleID)
         public
         view
         returns (uint16 companyID, uint16 capacity, uint16 numDeposits, uint256 totalAmount)
@@ -331,7 +332,7 @@ contract ChainShuttle is Ownable {
         return (s.companyID, s.capacity, s.numDeposits, s.totalAmount);
     }
 
-    function getDeposit(uint16 _shuttleID, address _sender)
+    function getDeposit(uint256 _shuttleID, address _sender)
         public
         view
         returns (address recipient, uint256 amount)

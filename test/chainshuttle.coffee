@@ -86,21 +86,43 @@ contract 'ChainShuttle - setup functions', (accounts) ->
         shuttle.setCompany 1, 'Revert', 1, accounts[0], accounts[0]
       )
 
-  describe 'newShuttle(_companyID,_capacity)', ->
-    it 'create a new shuttle to transfer erc20 tokens', ->
-      result = await shuttle.newShuttle 0, 100
-      newShuttle = await shuttle.getShuttle 0
+  describe 'initCapacity(_companyID,_capacity)', ->
+    it 'allow a new shuttle capacity for a company and create the first shuttle', ->
+      result = await shuttle.initCapacity 0, 100
+      newShuttleID = await shuttle.activeShuttles 0, 100
+      newShuttle = await shuttle.getShuttle newShuttleID.toNumber()
       newShuttle.companyID.toNumber().should.eql 0
       newShuttle.capacity.toNumber().should.eql 100
       TruffleAssert.eventEmitted(
         result
-        'NewShuttle'
+        'CapacityInit'
+        {companyID: web3.utils.toBN(0), capacity: web3.utils.toBN(100)}
+      )
+      TruffleAssert.eventEmitted(
+        result
+        'ShuttleCreation'
         {
           shuttleID: web3.utils.toBN(0),
           companyID: web3.utils.toBN(0),
           capacity: web3.utils.toBN(100)
         }
       )
+    
+  # describe 'newShuttle(_companyID,_capacity)', ->
+  #   it 'create a new shuttle to transfer erc20 tokens', ->
+  #     result = await shuttle.newShuttle 0, 100
+  #     newShuttle = await shuttle.getShuttle 0
+  #     newShuttle.companyID.toNumber().should.eql 0
+  #     newShuttle.capacity.toNumber().should.eql 100
+  #     TruffleAssert.eventEmitted(
+  #       result
+  #       'ShuttleCreation'
+  #       {
+  #         shuttleID: web3.utils.toBN(0),
+  #         companyID: web3.utils.toBN(0),
+  #         capacity: web3.utils.toBN(100)
+  #       }
+  #     )
 
 contract 'ChainShuttle - shuttle functions', (accounts) ->
   shuttle = {}
@@ -145,15 +167,15 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
       '0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00'
     )
     await shuttle.setCompany 0, 'ChainTaxi', 1, shuttle.address, taxi.address
-    await shuttle.newShuttle 0, 2
+    await shuttle.initCapacity 0, 2
       
-  describe 'registerDeposit(_shuttleID,_to,_amount)', ->
+  describe 'registerDeposit(_companyID,_capacity,_to,_amount)', ->
     it 'register a new erc20 deposit', ->
       amount = 10000
       await taxi.approve shuttle.address, amount
 
       result = await shuttle.registerDeposit(
-        0, accounts[0], amount
+        0, 2, accounts[0], amount
         {from: accounts[0], value: web3.utils.toWei('0.05', 'ether')}
       )
       deposit = await shuttle.getDeposit 0, accounts[0]
@@ -163,7 +185,7 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
       shuttleBalance.toNumber().should.eql amount
       TruffleAssert.eventEmitted(
         result
-        'DepositRegistation'
+        'DepositRegistration'
         {
           shuttleID: web3.utils.toBN(0),
           from: accounts[0],
@@ -176,7 +198,7 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
       await taxi.approve shuttle.address, amount
       await TruffleAssert.reverts(
         shuttle.registerDeposit(
-          0, accounts[0], amount
+          0, 2, accounts[0], amount
           {from: accounts[0], value: web3.utils.toWei('0.05', 'ether')}
         )
       )
@@ -184,7 +206,7 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
     it 'when `msg.sender` did not approve to withdraw `_amount`, revert transaction', ->
       await TruffleAssert.reverts(
         shuttle.registerDeposit(
-          0, accounts[1], 10000
+          0, 2, accounts[1], 10000
           {from: accounts[1], value: web3.utils.toWei('0.05', 'ether')}
         )
       )
@@ -194,14 +216,14 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
       await taxi.approve shuttle.address, amount, {from: accounts[1]}
 
       result = await shuttle.registerDeposit(
-        0, accounts[1], amount
+        0, 2, accounts[1], amount
         {from: accounts[1], value: web3.utils.toWei('0.05', 'ether')}
       )
       shuttleBalance = await taxi.balanceOf shuttle.address
       shuttleBalance.toNumber().should.eql 0
-      resetedShuttle = await shuttle.getShuttle 0
-      resetedShuttle.numDeposits.toNumber().should.eql 0
-      resetedShuttle.totalAmount.toNumber().should.eql 0
+      # resetedShuttle = await shuttle.getShuttle 0
+      # resetedShuttle.numDeposits.toNumber().should.eql 0
+      # resetedShuttle.totalAmount.toNumber().should.eql 0
       TruffleAssert.eventEmitted(
         result
         'ShuttleDeparture'
@@ -232,14 +254,14 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
         0000000000000000000000000000000000000000000000000000000000002710"
 
       result = await shuttle.offloadShuttle shuttleData
-      claim1 = await shuttle.getClaimableAmount 0, accounts[0]
+      claim1 = await shuttle.claimableAmounts 0, accounts[0]
       claim1.toNumber().should.eql 10000
-      claim2 = await shuttle.getClaimableAmount 0, accounts[0]
+      claim2 = await shuttle.claimableAmounts 0, accounts[0]
       claim2.toNumber().should.eql 10000
       TruffleAssert.eventEmitted(
         result
         'ShuttleOffload'
-        {companyID: web3.utils.toBN(0), numDeposits: web3.utils.toBN(2)}
+        {companyID: web3.utils.toBN(0), capacity: web3.utils.toBN(2)}
       )
 
     it 'if `msg.sender` is not the bridge GenericHandler, revert transaction', ->
