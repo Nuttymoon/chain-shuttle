@@ -2,6 +2,7 @@ should = require 'should'
 Contract = require '@truffle/contract'
 TruffleAssert = require 'truffle-assertions'
 bridgeConf = require '../env/docker/chainbridge/.config.json'
+staticAddr = require '../env/.addresses.json'
 erc20Json = require './contract-abis/ERC20PresetMinterPauser.json'
 bridgeJson = require './contract-abis/Bridge.json'
 ChainShuttle = artifacts.require 'ChainShuttle'
@@ -12,7 +13,7 @@ Bridge.setProvider web3.currentProvider
 Taxi = Contract {abi: erc20Json.abi, unlinked_binary: erc20Json.bytecode}
 Taxi.setProvider web3.currentProvider
 
-contract 'ChainShuttle - setup functions', (accounts) ->
+contract 'ChainShuttle - setup functions (source chain)', (accounts) ->
   shuttle = {}
   taxi = {}
   Taxi.defaults({from: accounts[0]})
@@ -24,8 +25,8 @@ contract 'ChainShuttle - setup functions', (accounts) ->
 
     console.log """
                 \t
-                  ChainShuttle address: #{shuttle.address}
-                  TaxiToken address: #{taxi.address}
+                  ChainShuttle address (Ethereum): #{shuttle.address}
+                  TaxiToken address (Ethereum): #{taxi.address}
                 \t
               """
 
@@ -93,6 +94,7 @@ contract 'ChainShuttle - setup functions', (accounts) ->
       newShuttle = await shuttle.getShuttle newShuttleID.toNumber()
       newShuttle.companyID.toNumber().should.eql 0
       newShuttle.capacity.toNumber().should.eql 100
+      newShuttle.status.toNumber().should.eql 0
       TruffleAssert.eventEmitted(
         result
         'CapacityInit'
@@ -108,28 +110,13 @@ contract 'ChainShuttle - setup functions', (accounts) ->
         }
       )
     
-  # describe 'newShuttle(_companyID,_capacity)', ->
-  #   it 'create a new shuttle to transfer erc20 tokens', ->
-  #     result = await shuttle.newShuttle 0, 100
-  #     newShuttle = await shuttle.getShuttle 0
-  #     newShuttle.companyID.toNumber().should.eql 0
-  #     newShuttle.capacity.toNumber().should.eql 100
-  #     TruffleAssert.eventEmitted(
-  #       result
-  #       'ShuttleCreation'
-  #       {
-  #         shuttleID: web3.utils.toBN(0),
-  #         companyID: web3.utils.toBN(0),
-  #         capacity: web3.utils.toBN(100)
-  #       }
-  #     )
-
-contract 'ChainShuttle - shuttle functions', (accounts) ->
+contract 'ChainShuttle - shuttle functions (source chain)', (accounts) ->
   shuttle = {}
   taxi = {}
   bridge = {}
   Bridge.defaults({from: accounts[0]})
   Taxi.defaults({from: accounts[0]})
+  depositNonce = 0
 
   before ->
     shuttle = await ChainShuttle.deployed()
@@ -138,9 +125,10 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
 
     console.log """
                 \t
-                  ChainBridge address: #{bridge.address}
-                  ChainShuttle address: #{shuttle.address}
-                  TaxiToken address: #{taxi.address}
+                  ChainBridge address (Ethereum): #{bridge.address}
+                  ChainShuttle address (Ethereum): #{shuttle.address}
+                  ChainShuttle address (Avalanche): #{staticAddr.avalanche.chainShuttle}
+                  TaxiToken address (Ethereum): #{taxi.address}
 
                   Registering ChainShuttle contract on the bridge...
                 \t
@@ -151,7 +139,6 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
       '0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00'
       shuttle.address
       '0x00000000'
-      # 12
       web3.eth.abi.encodeFunctionSignature 'offloadShuttle(bytes)'
     )
 
@@ -166,7 +153,7 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
       bridgeConf.chains[0].opts.genericHandler
       '0x000000000000000000000000000000f44be64d2de895454c3467021928e55e00'
     )
-    await shuttle.setCompany 0, 'ChainTaxi', 1, shuttle.address, taxi.address
+    await shuttle.setCompany 0, 'ChainTaxi', 1, staticAddr.avalanche.chainShuttle, taxi.address
     await shuttle.initCapacity 0, 2
       
   describe 'registerDeposit(_companyID,_capacity,_to,_amount)', ->
@@ -176,7 +163,7 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
 
       result = await shuttle.registerDeposit(
         0, 2, accounts[0], amount
-        {from: accounts[0], value: web3.utils.toWei('0.05', 'ether')}
+        {from: accounts[0], value: web3.utils.toWei('0.075', 'ether')}
       )
       deposit = await shuttle.getDeposit 0, accounts[0]
       deposit.recipient.should.eql accounts[0]
@@ -199,7 +186,7 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
       await TruffleAssert.reverts(
         shuttle.registerDeposit(
           0, 2, accounts[0], amount
-          {from: accounts[0], value: web3.utils.toWei('0.05', 'ether')}
+          {from: accounts[0], value: web3.utils.toWei('0.075', 'ether')}
         )
       )
 
@@ -207,32 +194,35 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
       await TruffleAssert.reverts(
         shuttle.registerDeposit(
           0, 2, accounts[1], 10000
-          {from: accounts[1], value: web3.utils.toWei('0.05', 'ether')}
+          {from: accounts[1], value: web3.utils.toWei('0.075', 'ether')}
         )
       )
 
-    it 'register enough transfers to trigger a deposit on the bridge', ->
+    it 'register enough transfers and trigger a deposit on the bridge', ->
       amount = 10000
       await taxi.approve shuttle.address, amount, {from: accounts[1]}
 
       result = await shuttle.registerDeposit(
         0, 2, accounts[1], amount
-        {from: accounts[1], value: web3.utils.toWei('0.05', 'ether')}
+        {from: accounts[1], value: web3.utils.toWei('0.075', 'ether')}
       )
-      shuttleBalance = await taxi.balanceOf shuttle.address
-      shuttleBalance.toNumber().should.eql 0
-      # resetedShuttle = await shuttle.getShuttle 0
-      # resetedShuttle.numDeposits.toNumber().should.eql 0
-      # resetedShuttle.totalAmount.toNumber().should.eql 0
       TruffleAssert.eventEmitted(
         result
-        'ShuttleDeparture'
-        {
-          companyID: web3.utils.toBN(0),
-          shuttleID: web3.utils.toBN(0),
-          totalAmount: web3.utils.toBN(amount * 2)
-        }
+        'ShuttleBoardingComplete'
+        {shuttleID: web3.utils.toBN(0), totalAmount: web3.utils.toBN(amount * 2)}
       )
+      shuttleState = await shuttle.getShuttle 0
+      shuttleState.status.toNumber().should.eql 1
+      shuttleBalance = await taxi.balanceOf shuttle.address
+      shuttleBalance.toNumber().should.eql 0
+      bridgeEvents = await bridge.getPastEvents 'Deposit', {fromBlock: 0}
+      depositNonce = bridgeEvents.pop().args.depositNonce.toNumber()
+
+  describe 'sendShuttleData(_shuttleID,_depositNonce,_bridgeFee)', ->
+    it 'send the shuttle data to trigger the offload', ->
+      result = await shuttle.sendShuttleData 0, depositNonce, web3.utils.toWei('0.05', 'ether')
+      shuttleState = await shuttle.getShuttle 0
+      shuttleState.status.toNumber().should.eql 2
 
   describe 'offloadShuttle(_data)', ->
     it 'offload the shuttle data to register claimable deposits', ->
@@ -247,6 +237,8 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
 
       shuttleData = "0x\
         0000000000000000000000000000000000000000000000000000000000000002\
+        0000000000000000000000000000000000000000000000000000000000000000\
+        0000000000000000000000000000000000000000000000000000000000000000\
         0000000000000000000000000000000000000000000000000000000000000000\
         #{accounts[0].substr(2).padStart(64, '0')}\
         #{accounts[1].substr(2).padStart(64, '0')}\
@@ -267,6 +259,8 @@ contract 'ChainShuttle - shuttle functions', (accounts) ->
     it 'if `msg.sender` is not the bridge GenericHandler, revert transaction', ->
       shuttleData = "0x\
         0000000000000000000000000000000000000000000000000000000000000002\
+        0000000000000000000000000000000000000000000000000000000000000000\
+        0000000000000000000000000000000000000000000000000000000000000000\
         0000000000000000000000000000000000000000000000000000000000000000\
         #{accounts[0].substr(2).padStart(64, '0')}\
         #{accounts[1].substr(2).padStart(64, '0')}\

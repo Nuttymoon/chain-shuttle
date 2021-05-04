@@ -18,24 +18,18 @@
   - [x] Send ERC20 tokens through the bridge when shuttle capacity is reached
   - [x] Define encoding for dispatch bytes message
   - [x] Send dispatch bytes message through the bridge when shuttle capacity is reached
-  - [ ] Embed `dataHash` and `depositNonce` of the ERC20 deposit in dispatch message. `dataHash` computing:
-    ```
-    keccak256(abi.encodePacked(
-      erc20HandlerAddress,
-      abi.encode(s.totalAmount),
-      abi.encode(uint256(20)),
-      c.mirror
-    ))
-    ```
-- [ ] Use a dedicated function to send the dispatch message (to avoid dispatch to happen if the ERC20 deposit has not been executed)
+  - [x] Embed `dataHash` and `depositNonce` of the ERC20 deposit in dispatch message. `dataHash` computing
+- [x] Use a dedicated function to send the dispatch message (to avoid dispatch to happen if the ERC20 deposit has not been executed)
 - [ ] `offloadShuttle()`
   - [x] Register claimable deposits in state
+  - [ ] Use destination chain GenericHandler address in `dataHash` computation
   - [ ] Check that ERC20 deposit proposal has passed before registering claimable deposits (using `dataHash` and `depositNonce`)
-  - [ ] Test cross-chain message sending/reception
+  - [ ] Unable to offload a shuttle several times by storing a boolean per `dataHash+depositNonce`
+- [x] Test cross-chain message sending/reception
 - [ ] Implement a ChainBridge GenericHandler to only allow the shuttle contract to deposit messages
 - [ ] Gas optimization
   - [ ] Configure realistic gas price
-  - [ ] Benchmark `require` calls gas cost
+  - [ ] Benchmark `require()` + events gas cost
   - [ ] Refund the user that payed gas for `sendShuttle()` (ERC20 token?)
 
 ## Setup
@@ -65,27 +59,19 @@ make install
   go build
   ```
 
-### Bootstrap dev env
+### Bootstrap the development environment
 
 Start 2 chains and setup the chainbridge:
 
 ```sh
 yarn install
-./env/bootstrap.sh -d -e geth -a geth -b
+yarn develop
 ```
 
 ### Test the code
 
-#### Ethereum (ganache-cli or geth)
-
 ```sh
 yarn test
-```
-
-#### Avalanche (avash)
-
-```sh
-yarn test:avash
 ```
 
 ## Collaborate

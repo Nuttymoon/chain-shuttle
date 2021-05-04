@@ -1,0 +1,8 @@
+{
+  "ethereum": {
+    "chainShuttle": "${ETH_CHAINSHUTTLE_ADDR}"
+  },
+  "avalanche": {
+    "chainShuttle": "${AVAX_CHAINSHUTTLE_ADDR}"
+  }
+}

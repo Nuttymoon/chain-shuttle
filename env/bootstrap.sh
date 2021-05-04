@@ -14,6 +14,7 @@ DESTROY_FLAG=''
 TRUFFLE_FLAG=''
 CCHAIN_FLAG=''
 BRIDGE_FLAG=''
+MIGRATE_FLAG=''
 
 # AVAX vars
 export AVAX_PORT=9650
@@ -219,14 +220,14 @@ setup_bridge() {
   # Setup ChainBridge between the local Avalanche and Ethereum chains
   # $1 Ethereum account private key
   # $2 Avalanche account private key
-  echo "Contracts on Avalanche chain:"
+  echo "Avalanche chain:"
   deploy_bridge_contracts 1 "$AVAX_URL" "$2" dest
   export AVAX_BRIDGE_ADDR="$BRIDGE_ADDR"
   export AVAX_ERC20_HANDLER_ADDR="$ERC20_HANDLER_ADDR"
   export AVAX_GEN_HANDLER_ADDR="$GEN_HANDLER_ADDR"
   export AVAX_ERC20_ADDR="$ERC20_ADDR"
 
-  echo "Contracts on Ethereum chain:"
+  echo "Ethereum chain:"
   deploy_bridge_contracts 0 "$ETH_URL" "$1" src
   export ETH_BRIDGE_ADDR="$BRIDGE_ADDR"
   export ETH_ERC20_HANDLER_ADDR="$ERC20_HANDLER_ADDR"
@@ -241,13 +242,31 @@ setup_bridge() {
   cd - > /dev/null || exit 1
 }
 
-while getopts 'a:be:dct' flag; do
+migrate_static() {
+  # Migrate contracts on both chains to get static addresses
+  echo "Ethereum chain: Migrate contracts to static addresses"
+  addr=$(truffle migrate --network eth --reset | grep -A 4 'ChainShuttle' \
+    | grep 'contract address' | grep -oP '0x.*')
+  export ETH_CHAINSHUTTLE_ADDR="$addr"
+  envsubst < "$(dirname "$0")/addresses-template.json" \
+    > "$(dirname "$0")/.addresses.json"
+
+  echo "Avalanche chain: Migrate contracts to static addresses"
+  addr=$(truffle migrate --network avax_geth --reset | grep -A 4 'ChainShuttle' \
+    | grep 'contract address' | grep -oP '0x.*')
+  export AVAX_CHAINSHUTTLE_ADDR="$addr"
+  envsubst < "$(dirname "$0")/addresses-template.json" \
+    > "$(dirname "$0")/.addresses.json"
+}
+
+while getopts 'a:be:dcmt' flag; do
   case "${flag}" in
     a) AVAX_PROVIDER="$OPTARG" ;;
     b) BRIDGE_FLAG='true' ;;
     c) CCHAIN_FLAG='true' ;;
     d) DESTROY_FLAG='true' ;;
     e) ETH_PROVIDER="$OPTARG" ;;
+    m) MIGRATE_FLAG='true' ;;
     t) TRUFFLE_FLAG='true' ;;
     *) print_usage
        exit 1 ;;
@@ -279,6 +298,7 @@ then
        exit 1 ;;
   esac
 fi
+if [[ "$MIGRATE_FLAG" ]]; then migrate_static; fi
 if [[ "$BRIDGE_FLAG" ]]
 then
   if [[ "$AVAX_PROVIDER" && "$ETH_PROVIDER" ]]

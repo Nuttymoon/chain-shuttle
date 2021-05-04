@@ -6,14 +6,12 @@
   "scripts": {
     "postinstall": "husky install",
     "compile": "truffle compile && coffee -o test -c test",
-    "migrate": "yarn migrate:eth",
+    "develop": "./env/bootstrap.sh -d -e geth -a geth -b",
+    "migrate": "yarn migrate:eth && yarn migrate:avax",
     "migrate:avash": "truffle migrate --network avax_avash --reset",
     "migrate:avax": "truffle migrate --network avax_geth --reset",
     "migrate:eth": "truffle migrate --network eth --reset",
-    "test": "yarn test:eth",
-    "test:avash": "yarn compile && truffle test --network avax_avash",
-    "test:avax": "yarn compile && truffle test --network avax_geth",
-    "test:eth": "yarn compile && truffle test --network eth"
+    "test": "yarn compile && ./test/test.sh"
   },
   "repository": {
     "type": "git",
