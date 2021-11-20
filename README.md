@@ -1,6 +1,11 @@
 # Chain Shuttle
 
-:bus: A shuttle to batch cross-chain transfers and lower fees.
+:bus: A shuttle to batch cross-chain transfers using [ChainBridge](https://github.com/ChainSafe/chainbridge/) and lower fees.
+
+## State of the project
+
+This project was meant to be plugged on top of the first version of the [Avalanche-Ethereum bridge](https://bridge.avax.network/) that was implemented with ChainBridge.  
+This first implementation was generating a lot fees and thus it seemed interesting to batch transfers to/from Avalanche. Now that a new low-fee version of the bridge has been deployed, it makes a lot less sense and I stopped developing it.
 
 ## TO DO
 
